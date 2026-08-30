@@ -1,7 +1,32 @@
 # Tab Ceiling
 
-A minimal Firefox for Android extension that caps your open tabs at six (configurable) and
-keeps links from spawning new ones.
+A minimal Firefox (Desktop and Android) extension that caps your opening of new tabs to a limit and optionally
+keeps links from spawning new ones, too.
+
+## Motivation
+
+Do you ever open a new Firefox session only to end up with hundreds of tabs a few hours later?
+Tab Ceiling limits your ability to open new tabs, 
+helping you to keep your tab population under a reasonable limit (0 to 30, default 6).
+
+## What it does
+
+Tab Ceiling has two modes: 
+1. Blocks the creation of new tabs past a configurable ceiling.
+2. Optionally, forces new tabs past the ceiling, or all new tabs to replace the page that they were spawned from.
+
+## How it works
+
+Two mechanisms:
+
+1. **Content script**: clicks on `<a target="_blank">` links navigate the
+   current tab instead of opening a new one. No tab is created.
+2. **Background script**: the ceiling. If a tab is created anyway (the "+"
+   button, `window.open()` from page JS, "Open in new tab" from a long-press
+   menu) and you're already at the ceiling, it closes the new tab and (optionally) loads its URL in
+   the tab you came from.
+
+
 
 ## How it works
 
