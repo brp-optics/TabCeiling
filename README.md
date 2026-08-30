@@ -1,6 +1,6 @@
 # Tab Ceiling
 
-A minimal Firefox for Android extension that caps your open tabs at six and
+A minimal Firefox for Android extension that caps your open tabs at six (configurable) and
 keeps links from spawning new ones.
 
 ## How it works
@@ -14,28 +14,35 @@ Two mechanisms:
    menu) and you're already at six, it closes the new tab and loads its URL in
    the tab you came from.
 
-Private browsing windows get their own separate budget of six.
+Private browsing windows get their own separate budget.
 
-Installing the extension does nothing to tabs you already have open — it only
-reacts to tabs created from that point on. For the same reason, there is a
-20-second `STARTUP_GRACE_MS` window after browser start during which tab
-creation is ignored, so session restore can't be mistaken for you opening
-tabs. Verify this yourself before trusting it with a large session: open a few
-tabs over the limit, force-quit Firefox, reopen, and confirm they all come
-back.
+## Usage
+1. Install the add-on from https://addons.mozilla.org/en-US/firefox/addon/tab-ceiling/
 
 ## Configuration
 
 Open the Firefox menu → **Add-ons** → **Tab Ceiling**. The popup shows how much
 of your budget is spent and lets you change two things:
 
-- **Tab ceiling** — tabs allowed, 1 to 30. Default 6.
-- **Open blocked links here** — on, a blocked link replaces your current page;
-  off, the tap does nothing. Off is harsher.
+- **Tab ceiling**: tabs allowed, 1 to 30. Default 6.
+- **Open blocked links here**: if on, a blocked link replaces your current page;
+  if off, the tap does nothing (new tab will open and close itself). Off is harsher.
 
-Both save immediately to `storage.local` and take effect without a restart.
-`STARTUP_GRACE_MS` and `URL_WAIT_MS` remain constants in `background.js` —
-they're tuning, not preferences.
+3. From the add-ons menu next to the hamburger menu, click on "Tab Ceiling" to open the settings.
+4. I recommend unchecking "Open blocked links here" (v1.1.1 will disable by default).
+
+## Technical details
+
+Installing the extension does nothing to tabs you already have open — it only
+reacts to tabs created from that point on. For the same reason, there is a
+20-second `STARTUP_GRACE_MS` window after browser start during which tab
+creation is ignored, so session restore can't be mistaken for you opening
+tabs. You can verify this yourself before trusting it with a large session: open a few
+tabs over the limit, force-quit Firefox, reopen, and confirm they all come
+back.
+
+Configuration changes are saved immediately to `storage.local` and take effect without a restart.
+`STARTUP_GRACE_MS` and `URL_WAIT_MS` are constants only exposed in `background.js`.
 
 ## Files
 
@@ -48,13 +55,9 @@ they're tuning, not preferences.
 | `popup.html` / `popup.js` | The toolbar settings panel |
 | `icon.svg` | Toolbar icon |
 
-## Before you build
 
-Open `manifest.json` and change the extension ID from
-`tab-ceiling@yourname.example` to something unique to you. It's an identifier,
-not a real email address, but it must be unique on AMO.
 
-## Testing on your phone
+## Developers: Testing on your phone
 
 Requires [Node.js](https://nodejs.org) and a USB cable.
 
@@ -72,7 +75,7 @@ web-ext run --target=firefox-android --android-device=<device-id>
 `web-ext run` side-loads the extension without signing, and reloads on file
 changes. This is the fast iteration loop.
 
-## Installing it permanently
+## Developers: Installing a dev build permanently
 
 Release builds of Firefox for Android only install signed extensions. You have
 two options:
@@ -97,6 +100,5 @@ Nightly as your daily browser.
 - `window.open()` calls from page scripts aren't intercepted by the content
   script, so those tabs briefly appear before the background script closes
   them.
-- The extension can be disabled from Firefox's add-ons menu in a few taps. It's
-  friction, not a lock.
-- Firefox for iOS doesn't support extensions at all.
+- The extension can be disabled from Firefox's add-ons menu in a few taps. The point is to help you be organized, not overcome addictions.
+- Firefox for iOS doesn't support extensions at all. Thus iOS is not supported.
