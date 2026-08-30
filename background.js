@@ -35,9 +35,10 @@ browser.tabs.onCreated.addListener(async (tab) => {
     // Don't touch anything while the session is still restoring.
     if (Date.now() - loadedAt < STARTUP_GRACE_MS) return;
 
-    // Count tabs in this window. Private windows are separate windows, so
-    // private browsing gets its own independent budget of six.
-    const siblings = await browser.tabs.query({ windowId: tab.windowId });
+    // Firefox for Android has no window concept, so windowId-based queries
+    // are unreliable there. Match on incognito instead — that still keeps
+    // private browsing on its own separate budget.
+    const siblings = await queryPeers(tab);
     if (siblings.length <= settings.tabLimit) return;
 
     if (handled.has(tab.id)) return;
@@ -77,11 +78,18 @@ async function pickDestinationTab(newTab) {
       // Opener already closed; fall through.
     }
   }
-  const [active] = await browser.tabs.query({
-    windowId: newTab.windowId,
-    active: true
-  });
-  return active && active.id !== newTab.id ? active : null;
+  const peers = await queryPeers(newTab);
+  const active = peers.find((t) => t.active && t.id !== newTab.id);
+  return active || null;
+}
+
+/**
+ * All tabs sharing this tab's browsing context (normal vs private).
+ * Deliberately avoids windowId — see the note in the listener above.
+ */
+async function queryPeers(tab) {
+  const all = await browser.tabs.query({});
+  return all.filter((t) => t.incognito === tab.incognito);
 }
 
 /**

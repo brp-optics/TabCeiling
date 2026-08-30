@@ -4,7 +4,7 @@
 
 const DEFAULTS = {
   tabLimit: 6,
-  redirect: true
+  redirect: false
 };
 
 const LIMIT_MIN = 1;

@@ -16,13 +16,21 @@ let openTabs = 0;
 init();
 
 async function init() {
-  settings = await loadSettings();
-  el.redirect.checked = settings.redirect;
+  try {
+    settings = await loadSettings();
+    el.redirect.checked = settings.redirect;
 
-  const tabs = await browser.tabs.query({ currentWindow: true });
-  openTabs = tabs.length;
+    // Match the background script: no windowId, filter by browsing context.
+    const [current] = await browser.tabs.query({ active: true });
+    const all = await browser.tabs.query({});
+    const incognito = current ? current.incognito : false;
+    openTabs = all.filter((t) => t.incognito === incognito).length;
 
-  render();
+    render();
+  } catch (err) {
+    el.status.textContent = "Couldn't read tabs: " + err.message;
+    console.error("Tab Ceiling popup:", err);
+  }
 
   el.minus.addEventListener("click", () => nudgeLimit(-1));
   el.plus.addEventListener("click", () => nudgeLimit(+1));
