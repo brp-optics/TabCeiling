@@ -1,2 +1,5 @@
 #!/usr/bin/bash
-zip "build/$1.zip" *.js *.json *.html *.svg
+set -euo pipefail
+mkdir -p build
+rm -f "build/$1.zip"
+zip "build/$1.zip" *.js manifest.json *.html *.svg
