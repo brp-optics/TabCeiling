@@ -42,7 +42,7 @@
 
   /* ---- The gauge: how much of the budget is spent ---- */
 
-  .gauge { text-align: center; margin-bottom: 20px; }
+  .gauge { text-align: center; margin-bottom: 18px; }
 
   .count {
     font-family: ui-monospace, "Roboto Mono", "DejaVu Sans Mono", monospace;
@@ -55,6 +55,7 @@
   .count .slash { color: var(--muted); margin: 0 2px; }
   .count .limit { color: var(--muted); }
   .count.is-over #used { color: var(--over); }
+  .count.is-off .slash, .count.is-off .limit { display: none; }
 
   .pips {
     display: flex;
@@ -63,6 +64,7 @@
     gap: 4px;
     margin: 14px 0 10px;
   }
+  .pips:empty { margin: 10px 0 0; }
   .pip {
     width: 20px;
     height: 6px;
@@ -87,8 +89,13 @@
     border-top: 1px solid var(--line);
   }
 
+  .block {
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+
   .label { display: block; font-size: 15px; }
-  .hint  { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .hint  { display: block; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 
   .stepper {
     display: flex;
@@ -110,22 +117,40 @@
   }
   .stepper button:disabled { color: var(--muted); opacity: 0.4; cursor: default; }
   .stepper .value {
-    min-width: 32px;
+    min-width: 42px;
     text-align: center;
     font-family: ui-monospace, "Roboto Mono", monospace;
     font-variant-numeric: tabular-nums;
     font-size: 17px;
   }
 
-  input[type="checkbox"] {
-    width: 22px;
-    height: 22px;
-    flex: none;
-    accent-color: var(--signal);
-    margin: 0;
-  }
+  /* ---- Segmented control ---- */
 
-  label.row { cursor: pointer; }
+  .seg {
+    display: flex;
+    margin-top: 10px;
+    background: var(--raised);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 3px;
+  }
+  .seg button {
+    flex: 1;
+    min-height: 42px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 2px;
+  }
+  .seg button[aria-checked="true"] {
+    background: var(--signal);
+    color: #fff;
+    font-weight: 500;
+  }
 
   :focus-visible {
     outline: 2px solid var(--signal);
@@ -160,13 +185,15 @@
     </div>
   </div>
 
-  <label class="row">
-    <span>
-      <span class="label">Open blocked links in their origin tab</span>
-      <span class="hint">At the ceiling, a link that would open a new tab loads in the current tab instead of being dropped.</span>
-    </span>
-    <input type="checkbox" id="redirect">
-  </label>
+  <div class="block">
+    <span class="label">Load links in the current tab</span>
+    <div class="seg" id="seg" role="radiogroup" aria-label="Load links in the current tab">
+      <button type="button" role="radio" data-mode="never" aria-checked="false">Never</button>
+      <button type="button" role="radio" data-mode="ceiling" aria-checked="false">At ceiling</button>
+      <button type="button" role="radio" data-mode="always" aria-checked="false">Always</button>
+    </div>
+    <p class="hint" id="modeHint"></p>
+  </div>
 
   <p class="foot">Changes apply immediately.</p>
 

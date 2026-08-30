@@ -1,9 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Tab Ceiling",
-  "version": "1.1.1",
-  "description": "Caps new open tabs at a number you choose and optionally redirect links from into their source tabs.",
-
+  "version": "1.2.0",
+  "description": "Caps how many new tabs you can open, and can collapse links that want a new tab into the tab you tapped them from.",
   "browser_specific_settings": {
     "gecko": {
       "id": "tab-ceiling@example.com",

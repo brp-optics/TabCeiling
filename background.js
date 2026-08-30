@@ -1,13 +1,17 @@
-// Live settings, edited from the toolbar popup. Starts at the defaults so the
-// listener below is never reading undefined during the async load.
+// Live settings, edited from the popup. Starts at the defaults so the listener
+// below is never reading undefined during the async load.
 let settings = { ...DEFAULTS };
 
-loadSettings().then((loaded) => { settings = loaded; });
+migrateSettings()
+  .then(loadSettings)
+  .then((loaded) => { settings = loaded; })
+  .catch((err) => console.warn("Tab Ceiling: settings load failed", err));
 
 // Apply popup edits without needing a browser restart.
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   for (const [key, change] of Object.entries(changes)) {
+    if (change.newValue === undefined) continue;
     settings[key] = change.newValue;
   }
 });
@@ -34,19 +38,31 @@ browser.tabs.onCreated.addListener(async (tab) => {
   try {
     // Don't touch anything while the session is still restoring.
     if (Date.now() - loadedAt < STARTUP_GRACE_MS) return;
+    if (handled.has(tab.id)) return;
 
     // Firefox for Android has no window concept, so windowId-based queries
     // are unreliable there. Match on incognito instead — that still keeps
     // private browsing on its own separate budget.
-    const siblings = await queryPeers(tab);
-    if (siblings.length <= settings.tabLimit) return;
+    const peers = await queryPeers(tab);
 
-    if (handled.has(tab.id)) return;
+    const overCeiling =
+      ceilingEnabled(settings) && peers.length > settings.tabLimit;
+
+    // In "always" mode we collapse link-opened tabs even under the ceiling —
+    // that's what makes the promise unconditional, and it's the only way to
+    // catch window.open(), which the content script can't touch. A tab with
+    // no opener is the "+" button, i.e. you deliberately asking for a blank
+    // tab, so that's left alone until the ceiling itself is hit.
+    const collapseLink =
+      settings.linkMode === "always" && tab.openerTabId != null;
+
+    if (!overCeiling && !collapseLink) return;
+
     handled.add(tab.id);
 
     // Work out where to send the URL BEFORE we start waiting. Once the new
     // tab takes focus, "the active tab" is the new tab, which is useless.
-    const destination = await pickDestinationTab(tab);
+    const destination = pickDestination(tab, peers);
 
     // A tab often starts life as about:blank and gets its real URL a moment
     // later, so we may have to wait for it.
@@ -54,7 +70,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
     await browser.tabs.remove(tab.id);
 
-    if (settings.redirect && url && destination) {
+    if (settings.linkMode !== "never" && url && destination) {
       await browser.tabs.update(destination.id, { url, active: true });
     }
   } catch (err) {
@@ -67,20 +83,16 @@ browser.tabs.onCreated.addListener(async (tab) => {
 browser.tabs.onRemoved.addListener((tabId) => handled.delete(tabId));
 
 /**
- * The tab that should receive the redirected URL: whichever tab spawned the
- * new one, falling back to whatever was active a moment ago.
+ * The tab that should receive the collapsed URL: whichever tab spawned the new
+ * one, falling back to whatever was active a moment ago. Takes the already
+ * fetched peer list so we don't query twice.
  */
-async function pickDestinationTab(newTab) {
+function pickDestination(newTab, peers) {
   if (newTab.openerTabId != null) {
-    try {
-      return await browser.tabs.get(newTab.openerTabId);
-    } catch (e) {
-      // Opener already closed; fall through.
-    }
+    const opener = peers.find((t) => t.id === newTab.openerTabId);
+    if (opener) return opener;
   }
-  const peers = await queryPeers(newTab);
-  const active = peers.find((t) => t.active && t.id !== newTab.id);
-  return active || null;
+  return peers.find((t) => t.active && t.id !== newTab.id) || null;
 }
 
 /**

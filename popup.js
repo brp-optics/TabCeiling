@@ -7,7 +7,17 @@ const el = {
   status: document.getElementById("status"),
   minus: document.getElementById("minus"),
   plus: document.getElementById("plus"),
-  redirect: document.getElementById("redirect")
+  seg: document.getElementById("seg"),
+  modeHint: document.getElementById("modeHint")
+};
+
+const MODE_HINTS = {
+  never:
+    "A blocked link is dropped. The page you're reading is never taken away.",
+  ceiling:
+    "Once you're at the ceiling, a blocked link loads in the tab you tapped it from.",
+  always:
+    "Links that want a new tab always load in the tab you tapped them from, at any count."
 };
 
 let settings = { ...DEFAULTS };
@@ -18,7 +28,6 @@ init();
 async function init() {
   try {
     settings = await loadSettings();
-    el.redirect.checked = settings.redirect;
 
     // Match the background script: no windowId, filter by browsing context.
     const [current] = await browser.tabs.query({ active: true });
@@ -34,14 +43,18 @@ async function init() {
 
   el.minus.addEventListener("click", () => nudgeLimit(-1));
   el.plus.addEventListener("click", () => nudgeLimit(+1));
-  el.redirect.addEventListener("change", () => {
-    settings.redirect = el.redirect.checked;
-    saveSettings({ redirect: settings.redirect });
+
+  el.seg.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-mode]");
+    if (!button) return;
+    settings.linkMode = button.dataset.mode;
+    saveSettings({ linkMode: settings.linkMode });
+    render();
   });
 }
 
 function nudgeLimit(delta) {
-  const next = clamp(settings.tabLimit + delta, LIMIT_MIN, LIMIT_MAX);
+  const next = clampLimit(settings.tabLimit + delta);
   if (next === settings.tabLimit) return;
   settings.tabLimit = next;
   saveSettings({ tabLimit: next });
@@ -50,21 +63,29 @@ function nudgeLimit(delta) {
 
 function render() {
   const limit = settings.tabLimit;
+  const on = ceilingEnabled(settings);
   const over = openTabs - limit;
 
   el.used.textContent = openTabs;
   el.limitReadout.textContent = limit;
-  el.limitValue.textContent = limit;
+  el.limitValue.textContent = on ? limit : "Off";
 
   el.minus.disabled = limit <= LIMIT_MIN;
-  el.plus.disabled = limit >= LIMIT_MAX;
+  el.plus.disabled = limit >= LIMIT_OFF;
 
-  el.count.classList.toggle("is-over", over > 0);
-  el.status.classList.toggle("is-over", over >= 0);
+  el.count.classList.toggle("is-off", !on);
+  el.count.classList.toggle("is-over", on && over > 0);
+  el.status.classList.toggle("is-over", on && over >= 0);
 
-  renderPips(limit, over);
+  renderPips(on ? limit : 0, over);
+  renderStatus(on, limit, over);
+  renderModes();
+}
 
-  if (over > 0) {
+function renderStatus(on, limit, over) {
+  if (!on) {
+    el.status.textContent = "Ceiling off — new tabs open freely.";
+  } else if (over > 0) {
     el.status.textContent =
       `${over} over — new tabs get closed until you're under ${limit}.`;
   } else if (over === 0) {
@@ -77,6 +98,7 @@ function render() {
 
 // One pip per allowed tab. Filled pips are tabs you've spent. If you're over
 // the ceiling, every pip turns red — the count above carries the overflow.
+// Passing 0 (ceiling off) renders nothing, which is the point.
 function renderPips(limit, over) {
   el.pips.textContent = "";
   const filled = Math.min(openTabs, limit);
@@ -89,6 +111,11 @@ function renderPips(limit, over) {
   }
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function renderModes() {
+  for (const button of el.seg.querySelectorAll("button[data-mode]")) {
+    const selected = button.dataset.mode === settings.linkMode;
+    button.setAttribute("aria-checked", String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  }
+  el.modeHint.textContent = MODE_HINTS[settings.linkMode] || "";
 }
