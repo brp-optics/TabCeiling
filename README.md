@@ -26,19 +26,6 @@ Two mechanisms:
    menu) and you're already at the ceiling, it closes the new tab and (optionally) loads its URL in
    the tab you came from.
 
-
-
-## How it works
-
-Two mechanisms:
-
-1. **Content script** — clicks on `<a target="_blank">` links navigate the
-   current tab instead of opening a new one. No tab is created, no flicker.
-2. **Background script** — the ceiling. If a tab is created anyway (the "+"
-   button, `window.open()` from page JS, "Open in new tab" from a long-press
-   menu) and you're already at six, it closes the new tab and loads its URL in
-   the tab you came from.
-
 Private browsing windows get their own separate budget.
 
 ## Usage
