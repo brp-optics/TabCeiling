@@ -9,7 +9,7 @@ Two mechanisms:
 
 1. **Content script** — clicks on `<a target="_blank">` links navigate the
    current tab instead of opening a new one. No tab is created, no flicker.
-2. **Background script** — a safety net. If a tab is created anyway (the "+"
+2. **Background script** — the ceiling. If a tab is created anyway (the "+"
    button, `window.open()` from page JS, "Open in new tab" from a long-press
    menu) and you're already at six, it closes the new tab and loads its URL in
    the tab you came from.
@@ -21,15 +21,17 @@ Private browsing windows get their own separate budget.
 
 ## Configuration
 
-Open the Firefox menu → **Add-ons** → **Tab Ceiling**. The popup shows how much
+Open the Firefox **⋮** menu → **Extensions** → **Tab Ceiling** to reach the
+   settings. On Android a browser action lives in that menu; there is no
+   toolbar icon.
+
+The popup shows how much
 of your budget is spent and lets you change two things:
 
 - **Tab ceiling**: tabs allowed, 1 to 30. Default 6.
-- **Open blocked links here**: if on, a blocked link replaces your current page;
-  if off, the tap does nothing (new tab will open and close itself). Off is harsher.
-
-3. From the add-ons menu next to the hamburger menu, click on "Tab Ceiling" to open the settings.
-4. I recommend unchecking "Open blocked links here" (v1.1.1 will disable by default).
+- **Open blocked links in the origin tab**: when you are at the ceiling and a new tab
+  is blocked, load its URL in the tab that the link came from instead of discarding it.
+  Off by default to avoid interrupting the page you are reading.
 
 ## Technical details
 
@@ -53,8 +55,9 @@ Configuration changes are saved immediately to `storage.local` and take effect w
 | `background.js` | Enforces the ceiling on `tabs.onCreated` |
 | `content.js` | Rewrites `target="_blank"` clicks to same-tab navigation |
 | `popup.html` / `popup.js` | The toolbar settings panel |
-| `icon.svg` | Toolbar icon |
-
+| `icon.svg` | Extension icon |
+| `build.sh` | Zips the extension into `build/<version>.zip` for upload |
+| `LICENSE` | AGPLv3 License terms |
 
 
 ## Developers: Testing on your phone
@@ -64,16 +67,21 @@ Requires [Node.js](https://nodejs.org) and a USB cable.
 ```bash
 npm install --global web-ext
 
-# On the phone: Settings > About Firefox > tap the logo 5 times to unlock
-# the debug menu, then enable Remote debugging via USB.
-# On the computer: enable Developer options + USB debugging in Android settings.
+# On the phone, two separate steps:
+#   Android: Settings > About phone > tap Build number 7 times,
+#            then Developer options > USB debugging.
+#   Firefox: Settings > scroll to Advanced > Remote debugging via USB.
+#            (This is a plain visible toggle. The five-taps-on-the-logo trick
+#            unlocks the Custom Add-on Collection menu, not this.)
+#
 
 adb devices          # confirm the phone shows up
 web-ext run --target=firefox-android --android-device=<device-id>
 ```
 
+Run this script on the computer while the phone is connected via adb.
 `web-ext run` side-loads the extension without signing, and reloads on file
-changes. This is the fast iteration loop.
+changes.
 
 ## Developers: Installing a dev build permanently
 
@@ -100,5 +108,11 @@ Nightly as your daily browser.
 - `window.open()` calls from page scripts aren't intercepted by the content
   script, so those tabs briefly appear before the background script closes
   them.
-- The extension can be disabled from Firefox's add-ons menu in a few taps. The point is to help you be organized, not overcome addictions.
+- The content script rewrites `target="_blank"` links at every tab count, not
+  just at the ceiling, and is not governed by the "Open blocked links" setting.
+  So such links load in your current tab even when you are well under the
+  limit. Tracked for a future release.
+- The current interface limits tabs to 0 to 30. Would be good to raise limit.
+- Currently can only be disabled by uninstalling. Would be good to make entire extension toggleable in case of urgent work that requires new tabs.
+- The extension is easy to uninstall. The point is to help you be organized, not overcome addictions.
 - Firefox for iOS doesn't support extensions at all. Thus iOS is not supported.
