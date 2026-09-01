@@ -5,6 +5,25 @@ All notable changes to Tab Ceiling are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-02
+- This version attempts to fix a bug in tab closing behavior on Android,
+  which resulted in runaway closing of inactive tabs if the number of tabs was above limit and 
+  an inactive tab was activated.
+
+### Changed
+    We have to take some pains to make sure that when an unloaded or inactive tab is activated,
+    it doesn't count as a new tab load and get closed automatically. We implement a cooldown
+    period on new tab closures controlled by CLOSE_QUIET_MS (default 500 ms)
+    such that a new tab opening less than a 500 ms after the last tab closed
+    or a new tab opening with a URL already loaded and no openerTabID is considered a legacy tab and not closed.
+    We also implement a circuit breaker, 
+    where 3 forced closures in 10 seconds will cause the addon to stop enforcing the tab limit until FF is restarted.
+    This should limit the damage if we have a bug which closes tabs that were not actually new.
+
+### Known issues
+    FF on Android only provides a count of currently loaded tabs to extensions.
+    This means that inactive tabs and tabs that are unloaded (not in RAM) will not appear in the tab count.
+
 ## [1.2.0] - 2026-08-31
 
 ### Added
@@ -38,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tabs, rather than sitting on placeholder dashes.
 - `build.sh` creates `build/` if it's missing, and replaces the archive instead
   of appending to it. Deleted files could previously survive in later builds.
+
+### Known bugs
+    FF on Android only provides a count of currently loaded tabs to extensions.
+    This means that archived tabs and tabs that are not in RAM will not appear in the tab count.
 
 ## [1.1.0] - 2026-08-30
 

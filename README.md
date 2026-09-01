@@ -117,14 +117,13 @@ Nightly as your daily browser.
 
 ## Known limitations
 
+- The total number of open tabs is not available on Android.
+  We use the number of active (loaded) tabs instead, and have a workaround so
+  that inactive tabs are not blocked when loaded. 
+  This workaround needs to be tested.
 - `window.open()` calls from page scripts aren't intercepted by the content
   script, so those tabs briefly appear before the background script closes
   them.
-- The content script rewrites `target="_blank"` links at every tab count, not
-  just at the ceiling, and is not governed by the "Open blocked links" setting.
-  So such links load in your current tab even when you are well under the
-  limit. Tracked for a future release.
 - The current interface limits tabs to 0 to 30. Would be good to raise limit.
-- Currently can only be disabled by uninstalling. Would be good to make entire extension toggleable in case of urgent work that requires new tabs.
 - The extension is easy to uninstall. The point is to help you be organized, not overcome addictions.
 - Firefox for iOS doesn't support extensions at all. Thus iOS is not supported.

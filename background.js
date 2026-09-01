@@ -24,10 +24,36 @@ const URL_WAIT_MS = 800;
 // tabs.onCreated — which would wipe your session. This is the safety catch.
 const STARTUP_GRACE_MS = 20000;
 
+// Circuit breaker. If we ever close this many tabs inside this window, we are
+// almost certainly in a feedback loop rather than responding to a person
+// tapping links, so we stop enforcing until the browser restarts.
+//
+// This exists because of a real incident: on Firefox for Android, closing a
+// tab makes the browser materialise another one from its own storage, which
+// fires tabs.onCreated, which closed another tab, and so on until the session
+// was gone. Any misclassification we haven't thought of must not be able to
+// run away like that again.
+const BREAKER_WINDOW_MS = 10000;
+const BREAKER_MAX_CLOSURES = 3;
+
+// After we close a tab, Firefox for Android materialises another one to put on
+// screen, and that arrives here as a creation event. Anything appearing this
+// soon after our own closure is the browser reacting to us, not you opening a
+// tab — nobody taps twice that fast. Suppressing it breaks the feedback loop
+// at its causal link, one step earlier than the breaker.
+const CLOSE_QUIET_MS = 500;
+
 // ---------------------------------------------------------------------------
 
 // Tab IDs we've already acted on, so a race can't make us handle one twice.
 const handled = new Set();
+
+// Timestamps of tabs we've closed, trimmed to the breaker window.
+let closures = [];
+let breakerTripped = false;
+
+// When we last closed a tab ourselves. See CLOSE_QUIET_MS.
+let lastCloseAt = 0;
 
 // Set once when the background page loads. Because the page is persistent
 // (see manifest.json), this really is browser-start time and not an
@@ -38,11 +64,27 @@ browser.tabs.onCreated.addListener(async (tab) => {
   try {
     // Don't touch anything while the session is still restoring.
     if (Date.now() - loadedAt < STARTUP_GRACE_MS) return;
+    if (breakerTripped) return;
     if (handled.has(tab.id)) return;
 
-    // Firefox for Android has no window concept, so windowId-based queries
-    // are unreliable there. Match on incognito instead — that still keeps
-    // private browsing on its own separate budget.
+    // Firefox for Android unloads tabs it isn't showing, and materialises them
+    // again on demand — which arrives here as a creation event. Never act on
+    // one of those. A tab you actually just opened is either blank (the "+"
+    // button) or carries an openerTabId (a link). A tab that shows up already
+    // knowing its final URL, with nothing that opened it, is the browser
+    // restoring your own history back to you.
+    //
+    // This deliberately fails open: a bookmark or an external app opening a
+    // URL directly can look the same, and letting an extra tab through is a
+    // great deal better than closing one you wanted.
+    if (looksRestored(tab)) return;
+
+    // Independently of the classifier above: if we just closed something, this
+    // is the browser backfilling the screen, not you.
+    if (Date.now() - lastCloseAt < CLOSE_QUIET_MS) return;
+
+    // tabs.query only returns loaded tabs on Android, so on that platform this
+    // count is a floor, not a total. See README, Known limitations.
     const peers = await queryPeers(tab);
 
     const overCeiling =
@@ -50,13 +92,12 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
     // In "always" mode we collapse link-opened tabs even under the ceiling —
     // that's what makes the promise unconditional, and it's the only way to
-    // catch window.open(), which the content script can't touch. A tab with
-    // no opener is the "+" button, i.e. you deliberately asking for a blank
-    // tab, so that's left alone until the ceiling itself is hit.
+    // catch window.open(), which the content script can't touch.
     const collapseLink =
       settings.linkMode === "always" && tab.openerTabId != null;
 
     if (!overCeiling && !collapseLink) return;
+    if (!breakerAllows()) return;
 
     handled.add(tab.id);
 
@@ -69,6 +110,8 @@ browser.tabs.onCreated.addListener(async (tab) => {
     const url = await resolveUrl(tab);
 
     await browser.tabs.remove(tab.id);
+    lastCloseAt = Date.now();
+    closures.push(lastCloseAt);
 
     if (settings.linkMode !== "never" && url && destination) {
       await browser.tabs.update(destination.id, { url, active: true });
@@ -81,6 +124,34 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
 // Keep the Set from growing forever.
 browser.tabs.onRemoved.addListener((tabId) => handled.delete(tabId));
+
+/**
+ * A tab the browser is restoring rather than one you just opened. See the long
+ * note in the listener.
+ */
+function looksRestored(tab) {
+  return tab.openerTabId == null && isRealUrl(tab.url);
+}
+
+/**
+ * False once we've closed too many tabs too quickly. Trips permanently for the
+ * life of the background page; restarting Firefox clears it.
+ */
+function breakerAllows() {
+  const now = Date.now();
+  closures = closures.filter((t) => now - t < BREAKER_WINDOW_MS);
+
+  if (closures.length < BREAKER_MAX_CLOSURES) return true;
+
+  breakerTripped = true;
+  console.warn(
+    "Tab Ceiling: closed %d tabs in %dms — stopping to avoid a runaway loop.",
+    closures.length,
+    BREAKER_WINDOW_MS
+  );
+  browser.storage.local.set({ breakerTrippedAt: now }).catch(() => {});
+  return false;
+}
 
 /**
  * The tab that should receive the collapsed URL: whichever tab spawned the new
@@ -97,7 +168,7 @@ function pickDestination(newTab, peers) {
 
 /**
  * All tabs sharing this tab's browsing context (normal vs private).
- * Deliberately avoids windowId — see the note in the listener above.
+ * Deliberately avoids windowId — Firefox for Android has no window concept.
  */
 async function queryPeers(tab) {
   const all = await browser.tabs.query({});
