@@ -8,6 +8,12 @@ const el = {
   minus: document.getElementById("minus"),
   plus: document.getElementById("plus"),
   seg: document.getElementById("seg"),
+  alert: document.getElementById("alert"),
+  gauge: document.getElementById("gauge"),
+  ceilingRow: document.getElementById("ceilingRow"),
+  blockRow: document.getElementById("blockRow"),
+  blockNew: document.getElementById("blockNew"),
+  activity: document.getElementById("activity"),
   modeHint: document.getElementById("modeHint")
 };
 
@@ -22,12 +28,25 @@ const MODE_HINTS = {
 
 let settings = { ...DEFAULTS };
 let openTabs = 0;
+let isAndroid = false;
 
 init();
 
 async function init() {
+  // Platform layout must not depend on anything that can fail. On Android
+  // tabs.query is unreliable — it has been observed returning nothing — and if
+  // it throws, the catch below skips render() entirely, leaving the popup in
+  // its default HTML state: desktop ceiling visible, Android toggle hidden.
+  try {
+    const platform = await browser.runtime.getPlatformInfo();
+    isAndroid = platform.os === "android";
+  } catch (err) {
+    console.error("Tab Ceiling: platform detection failed", err);
+  }
+
   try {
     settings = await loadSettings();
+    renderPlatform();
 
     // Match the background script: no windowId, filter by browsing context.
     const [current] = await browser.tabs.query({ active: true });
@@ -35,14 +54,23 @@ async function init() {
     const incognito = current ? current.incognito : false;
     openTabs = all.filter((t) => t.incognito === incognito).length;
 
+    await renderBreaker();
     render();
+    await renderActivity();
   } catch (err) {
     el.status.textContent = "Couldn't read tabs: " + err.message;
     console.error("Tab Ceiling popup:", err);
+    renderPlatform();
+    renderModes();
   }
 
   el.minus.addEventListener("click", () => nudgeLimit(-1));
   el.plus.addEventListener("click", () => nudgeLimit(+1));
+
+  el.blockNew.addEventListener("change", () => {
+    settings.blockNew = el.blockNew.checked;
+    saveSettings({ blockNew: settings.blockNew });
+  });
 
   el.seg.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-mode]");
@@ -51,6 +79,55 @@ async function init() {
     saveSettings({ linkMode: settings.linkMode });
     render();
   });
+}
+
+/**
+ * The background script sets breakerTrippedAt when it has closed too many tabs
+ * too quickly and stopped enforcing. It clears the flag on startup, so if it's
+ * present the trip happened in this browser session and enforcement is off
+ * right now.
+ */
+async function renderBreaker() {
+  const { breakerTrippedAt } = await browser.storage.local.get("breakerTrippedAt");
+  if (!breakerTrippedAt) return;
+
+  const mins = Math.max(1, Math.round((Date.now() - breakerTrippedAt) / 60000));
+  el.alert.textContent =
+    `Stopped enforcing about ${mins} minute${mins === 1 ? "" : "s"} ago, ` +
+    `after closing several tabs in quick succession. This is a safety catch ` +
+    `against a runaway loop. Restart Firefox to resume.`;
+  el.alert.classList.add("show");
+}
+
+/**
+ * Android has no usable tab total, so it gets a binary block instead of the
+ * counted ceiling, and the gauge would only ever show a wrong number.
+ */
+function renderPlatform() {
+  el.gauge.hidden = isAndroid;
+  el.ceilingRow.hidden = isAndroid;
+  el.blockRow.hidden = !isAndroid;
+  el.blockNew.checked = settings.blockNew;
+}
+
+/**
+ * A readout, not a measurement. Opens are counted accurately; closes are not,
+ * because closing an unloaded tab fires no event, so the two are shown
+ * separately rather than netted into a single misleading number.
+ */
+async function renderActivity() {
+  const events = await loadActivity().catch(() => []);
+  if (!events.length) {
+    el.activity.textContent = "No tab activity in the last hour.";
+    return;
+  }
+
+  const opened = events.filter((e) => e.d > 0).length;
+  const closed = events.filter((e) => e.d < 0).length;
+
+  const parts = [`${opened} opened`];
+  if (closed) parts.push(`${closed} closed`);
+  el.activity.textContent = `Last hour: ${parts.join(", ")}.`;
 }
 
 function nudgeLimit(delta) {
@@ -80,6 +157,7 @@ function render() {
   renderPips(on ? limit : 0, over);
   renderStatus(on, limit, over);
   renderModes();
+  renderPlatform();
 }
 
 function renderStatus(on, limit, over) {

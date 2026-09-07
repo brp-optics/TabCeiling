@@ -5,6 +5,33 @@ All notable changes to Tab Ceiling are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-08
+- This version splits the interfaces between Android and Desktop, 
+  because there is no way to read the actual number of tabs on Android.
+
+### Added
+- "Limit open tabs" is now a standalone toggle on Desktop, allowing the tab limit to be disabled without changing its value. 
+  It is on by default.
+- "Block new tabs" is now a standalone toggle on Android. 
+- Android provides number of tabs opened and closed in the last hour, in lieu of an absolute tab count.
+- Android interface now shows if the circuit breaker has been hit.
+
+### Changed
+- The interface is now platform-dependent: a master toggle and a ceiling setter are shown on Desktop, 
+  but a master toggle and count of opened and closed tabs is shown on Android.
+- The tab ceiling interface has been removed from Android, in favor of a "block tabs" toggle. 
+  A numerical ceiling doesn't make sense where we can't know the absolute number of tabs.
+- On Desktop, the tab ceiling is no longer capped at 30, and the interface allows typing in numbers.
+- The arrow buttons used to set the tab ceiling now scale their increment with the current tab ceiling setting.
+- The row of pips now hides itself above 30 tabs or pips.
+
+## Fixed
+- Tab opening detection on Android is now experimentally verified.
+  It only counts (and blocks) tabs which are newly opened by the user (as opposed to loaded from an inactive tab).
+- Platform detection was previously dependent on successfully reading and counting the open tabs, 
+  which would prevent the interface from showing if the counting errored out. Now independent.
+
+
 ## [1.3.0] - 2026-09-02
 - This version attempts to fix a bug in tab closing behavior on Android,
   which resulted in runaway closing of inactive tabs if the number of tabs was above limit and 

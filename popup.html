@@ -30,6 +30,11 @@
 
   * { box-sizing: border-box; }
 
+  /* The UA stylesheet's [hidden] { display: none } loses to any author rule
+     that sets display — .row sets display:flex, so the hidden attribute would
+     otherwise do nothing on those elements. */
+  [hidden] { display: none !important; }
+
   body {
     margin: 0;
     min-width: 288px;
@@ -164,11 +169,70 @@
     color: var(--muted);
     text-align: center;
   }
+
+  .alert {
+    display: none;
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--over);
+    color: var(--over);
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .alert.show { display: block; }
+
+  .setup { display: none; }
+  .setup.show { display: block; }
+
+  .seed {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .seed input {
+    flex: 1;
+    min-width: 0;
+    height: 48px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
+    font-family: ui-monospace, "Roboto Mono", monospace;
+    font-size: 17px;
+  }
+  .seed button {
+    flex: none;
+    height: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--signal);
+    color: #fff;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .linkish {
+    background: none;
+    border: 0;
+    padding: 4px;
+    color: var(--signal);
+    font: inherit;
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
 
-  <div class="gauge">
+  <p class="alert" id="alert" role="status"></p>
+
+  <div class="gauge" id="gauge">
     <div class="count" id="count">
       <span id="used">–</span><span class="slash">/</span><span class="limit" id="limitReadout">–</span>
     </div>
@@ -176,7 +240,7 @@
     <p class="status" id="status">Counting tabs…</p>
   </div>
 
-  <div class="row">
+  <div class="row" id="ceilingRow">
     <span class="label">Tab ceiling</span>
     <div class="stepper">
       <button id="minus" type="button" aria-label="Lower the ceiling">−</button>
@@ -195,6 +259,15 @@
     <p class="hint" id="modeHint"></p>
   </div>
 
+  <div class="row" id="blockRow" hidden>
+    <span>
+      <span class="label">Block new tabs</span>
+      <span class="hint">Tabs you open are closed. Tabs Firefox restores are left alone.</span>
+    </span>
+    <input type="checkbox" id="blockNew">
+  </div>
+
+  <p class="foot" id="activity"></p>
   <p class="foot">Changes apply immediately.</p>
 
   <script src="settings.js"></script>
