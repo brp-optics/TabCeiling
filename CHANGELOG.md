@@ -5,13 +5,12 @@ All notable changes to Tab Ceiling are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2026-09-08
-- This version splits the interfaces between Android and Desktop, 
+## [1.5.0] - 2026-09-08
+- This version customizes the interfaces for Android and Desktop, 
   because there is no way to read the actual number of tabs on Android.
 
 ### Added
-- "Limit open tabs" is now a standalone toggle on Desktop, allowing the tab limit to be disabled without changing its value. 
-  It is on by default.
+- "Limit open tabs" is now a standalone toggle on Desktop, allowing the tab limit to be disabled without changing its value. It should be off by default, although this has not been tested.
 - "Block new tabs" is now a standalone toggle on Android. 
 - Android provides number of tabs opened and closed in the last hour, in lieu of an absolute tab count.
 - Android interface now shows if the circuit breaker has been hit.
@@ -30,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It only counts (and blocks) tabs which are newly opened by the user (as opposed to loaded from an inactive tab).
 - Platform detection was previously dependent on successfully reading and counting the open tabs, 
   which would prevent the interface from showing if the counting errored out. Now independent.
+
+## Known issues
+- Tab opening detection on Android fails if user uses the "+" button.
+- Unchecking "Limit Open Tabs" on Desktop hides the ceiling. Would be better if ceiling were greyed out.
 
 
 ## [1.3.0] - 2026-09-02

@@ -94,6 +94,9 @@
     border-top: 1px solid var(--line);
   }
 
+  /* Whichever control ends up first has no content above it to separate from. */
+  .row:first-of-type { border-top: 0; padding-top: 0; }
+
   .block {
     padding: 12px 0;
     border-top: 1px solid var(--line);
@@ -122,11 +125,17 @@
   }
   .stepper button:disabled { color: var(--muted); opacity: 0.4; cursor: default; }
   .stepper .value {
-    min-width: 42px;
+    width: 68px;
+    min-width: 0;
+    height: var(--tap);
+    border: 0;
+    background: none;
+    color: var(--ink);
     text-align: center;
     font-family: ui-monospace, "Roboto Mono", monospace;
     font-variant-numeric: tabular-nums;
     font-size: 17px;
+    -moz-appearance: textfield;
   }
 
   /* ---- Segmented control ---- */
@@ -232,6 +241,14 @@
 
   <p class="alert" id="alert" role="status"></p>
 
+  <div class="row" id="blockRow" hidden>
+    <span>
+      <span class="label">Block new tabs</span>
+      <span class="hint">Tabs you open are closed. Tabs Firefox restores are left alone.</span>
+    </span>
+    <input type="checkbox" id="blockNew">
+  </div>
+
   <div class="gauge" id="gauge">
     <div class="count" id="count">
       <span id="used">–</span><span class="slash">/</span><span class="limit" id="limitReadout">–</span>
@@ -240,11 +257,20 @@
     <p class="status" id="status">Counting tabs…</p>
   </div>
 
+  <div class="row" id="ceilingToggleRow">
+    <span>
+      <span class="label">Limit open tabs</span>
+      <span class="hint">Close new tabs once you are over the ceiling.</span>
+    </span>
+    <input type="checkbox" id="ceilingOn">
+  </div>
+
   <div class="row" id="ceilingRow">
     <span class="label">Tab ceiling</span>
     <div class="stepper">
       <button id="minus" type="button" aria-label="Lower the ceiling">−</button>
-      <span class="value" id="limitValue">–</span>
+      <input class="value" id="limitValue" type="number" inputmode="numeric"
+             min="1" max="9999" aria-label="Tab ceiling">
       <button id="plus" type="button" aria-label="Raise the ceiling">+</button>
     </div>
   </div>
@@ -257,14 +283,6 @@
       <button type="button" role="radio" data-mode="always" aria-checked="false">Always</button>
     </div>
     <p class="hint" id="modeHint"></p>
-  </div>
-
-  <div class="row" id="blockRow" hidden>
-    <span>
-      <span class="label">Block new tabs</span>
-      <span class="hint">Tabs you open are closed. Tabs Firefox restores are left alone.</span>
-    </span>
-    <input type="checkbox" id="blockNew">
   </div>
 
   <p class="foot" id="activity"></p>

@@ -76,21 +76,10 @@ const loadedAt = Date.now();
 
 browser.tabs.onCreated.addListener(async (tab) => {
   try {
-    // Don't touch anything while the session is still restoring.
-    if (Date.now() - loadedAt < STARTUP_GRACE_MS) return;
-    if (breakerTripped) return;
+    // Dedupe first: a tab we have already acted on must not be counted or
+    // acted on twice.
     if (handled.has(tab.id)) return;
 
-    // Firefox for Android unloads tabs it isn't showing, and materialises them
-    // again on demand — which arrives here as a creation event. Never act on
-    // one of those. A tab you actually just opened is either blank (the "+"
-    // button) or carries an openerTabId (a link). A tab that shows up already
-    // knowing its final URL, with nothing that opened it, is the browser
-    // restoring your own history back to you.
-    //
-    // This deliberately fails open: a bookmark or an external app opening a
-    // URL directly can look the same, and letting an extra tab through is a
-    // great deal better than closing one you wanted.
     // Android's only reliable tell that this is the browser materialising a
     // tab rather than you opening one: a restored tab already has the screen's
     // dimensions at creation, because it is about to be displayed. A tab you
@@ -107,17 +96,27 @@ browser.tabs.onCreated.addListener(async (tab) => {
     // and this test would skip everything.
     if (isAndroid && (tab.width > 0 || tab.height > 0)) return;
 
+    // The desktop equivalent. See looksRestored.
     if (looksRestored(tab)) return;
 
     // Independently of the classifier above: if we just closed something, this
     // is the browser backfilling the screen, not you.
     if (Date.now() - lastCloseAt < CLOSE_QUIET_MS) return;
 
+    // Everything above this line filters out tabs the browser created. What
+    // reaches here is a tab you opened, so it belongs in the statistic —
+    // whether or not we go on to enforce against it. The gates below govern
+    // enforcement only, which is why recording happens first: the readout is a
+    // record of what you did, not of what the extension chose to act on.
+    recordActivity(+1);
+
+    // Don't enforce while the session is still restoring.
+    if (Date.now() - loadedAt < STARTUP_GRACE_MS) return;
+    if (breakerTripped) return;
+
     // tabs.query only returns loaded tabs on Android, so on that platform this
     // count is a floor, not a total. See README, Known limitations.
     const peers = await queryPeers(tab);
-
-    recordActivity(+1);
 
     // Android gets a binary block; desktop gets the counted ceiling. There is
     // no usable tab total on Android — tabs.query returns only loaded tabs and
@@ -176,6 +175,42 @@ async function recordActivity(delta) {
   } catch (err) {
     // A missing statistic is not worth failing a tab decision over.
   }
+}
+
+/**
+ * A tab the browser is restoring rather than one you just opened: it arrives
+ * already knowing its final URL, with nothing that opened it.
+ *
+ * This never fires on Android, where every creation reports about:blank — the
+ * dimension check in the listener covers that platform. It still earns its
+ * place on desktop, where session restore can surface tabs this way.
+ *
+ * Deliberately fails open: a bookmark or an external app opening a URL looks
+ * the same, and letting an extra tab through beats closing one you wanted.
+ */
+function looksRestored(tab) {
+  return tab.openerTabId == null && isRealUrl(tab.url);
+}
+
+/**
+ * False once we've closed too many tabs too quickly. Trips for the life of the
+ * background page; restarting Firefox clears it. The popup surfaces the trip
+ * via breakerTrippedAt so enforcement never stops silently.
+ */
+function breakerAllows() {
+  const now = Date.now();
+  closures = closures.filter((t) => now - t < BREAKER_WINDOW_MS);
+
+  if (closures.length < BREAKER_MAX_CLOSURES) return true;
+
+  breakerTripped = true;
+  console.warn(
+    "Tab Ceiling: closed %d tabs in %dms — stopping to avoid a runaway loop.",
+    closures.length,
+    BREAKER_WINDOW_MS
+  );
+  browser.storage.local.set({ breakerTrippedAt: now }).catch(() => {});
+  return false;
 }
 
 /**

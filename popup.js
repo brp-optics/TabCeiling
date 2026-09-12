@@ -11,6 +11,8 @@ const el = {
   alert: document.getElementById("alert"),
   gauge: document.getElementById("gauge"),
   ceilingRow: document.getElementById("ceilingRow"),
+  ceilingToggleRow: document.getElementById("ceilingToggleRow"),
+  ceilingOn: document.getElementById("ceilingOn"),
   blockRow: document.getElementById("blockRow"),
   blockNew: document.getElementById("blockNew"),
   activity: document.getElementById("activity"),
@@ -67,6 +69,20 @@ async function init() {
   el.minus.addEventListener("click", () => nudgeLimit(-1));
   el.plus.addEventListener("click", () => nudgeLimit(+1));
 
+  el.ceilingOn.addEventListener("change", () => {
+    settings.ceilingOn = el.ceilingOn.checked;
+    saveSettings({ ceilingOn: settings.ceilingOn });
+    render();
+  });
+
+  el.limitValue.addEventListener("change", () => {
+    const next = clampLimit(parseInt(el.limitValue.value, 10));
+    if (!Number.isInteger(next)) return;
+    settings.tabLimit = next;
+    saveSettings({ tabLimit: next });
+    render();
+  });
+
   el.blockNew.addEventListener("change", () => {
     settings.blockNew = el.blockNew.checked;
     saveSettings({ blockNew: settings.blockNew });
@@ -104,9 +120,14 @@ async function renderBreaker() {
  * counted ceiling, and the gauge would only ever show a wrong number.
  */
 function renderPlatform() {
-  el.gauge.hidden = isAndroid;
-  el.ceilingRow.hidden = isAndroid;
+  const on = ceilingEnabled(settings);
+
+  el.gauge.hidden = isAndroid || !on;
+  el.ceilingToggleRow.hidden = isAndroid;
+  el.ceilingRow.hidden = isAndroid || !on;
   el.blockRow.hidden = !isAndroid;
+
+  el.ceilingOn.checked = on;
   el.blockNew.checked = settings.blockNew;
 }
 
@@ -130,8 +151,19 @@ async function renderActivity() {
   el.activity.textContent = `Last hour: ${parts.join(", ")}.`;
 }
 
-function nudgeLimit(delta) {
-  const next = clampLimit(settings.tabLimit + delta);
+function stepFor(value) {
+  if (value < 20) return 1;
+  if (value < 100) return 5;
+  if (value < 500) return 25;
+  return 100;
+}
+
+function nudgeLimit(direction) {
+  const current = settings.tabLimit;
+  // Step down by the size appropriate to where we land, not where we started,
+  // so stepping up then down returns to the same number.
+  const step = direction > 0 ? stepFor(current) : stepFor(current - 1);
+  const next = clampLimit(current + direction * step);
   if (next === settings.tabLimit) return;
   settings.tabLimit = next;
   saveSettings({ tabLimit: next });
@@ -145,16 +177,16 @@ function render() {
 
   el.used.textContent = openTabs;
   el.limitReadout.textContent = limit;
-  el.limitValue.textContent = on ? limit : "Off";
+  el.limitValue.value = limit;
 
   el.minus.disabled = limit <= LIMIT_MIN;
-  el.plus.disabled = limit >= LIMIT_OFF;
+  el.plus.disabled = limit >= LIMIT_MAX;
 
   el.count.classList.toggle("is-off", !on);
   el.count.classList.toggle("is-over", on && over > 0);
   el.status.classList.toggle("is-over", on && over >= 0);
 
-  renderPips(on ? limit : 0, over);
+  renderPips(on && limit <= PIP_MAX ? limit : 0, over);
   renderStatus(on, limit, over);
   renderModes();
   renderPlatform();
@@ -162,7 +194,7 @@ function render() {
 
 function renderStatus(on, limit, over) {
   if (!on) {
-    el.status.textContent = "Ceiling off — new tabs open freely.";
+    el.status.textContent = "";
   } else if (over > 0) {
     el.status.textContent =
       `${over} over — new tabs get closed until you're under ${limit}.`;
