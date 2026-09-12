@@ -1,59 +1,90 @@
 # Tab Ceiling
 
-A minimal Firefox (Desktop and Android) extension that caps your opening of new tabs to a limit and optionally
-keeps links from spawning new ones, too.
+A minimal Firefox (Desktop and Android) extension that caps your opening of new tabs (when you are over a limit) and optionally
+keeps links from spawning new tabs, too.
 
 ## Motivation
 
 Do you ever open a new Firefox session only to end up with hundreds of tabs a few hours later?
 Tab Ceiling limits your ability to open new tabs, 
-helping you to keep your tab population under a reasonable limit (0 to 30, default 6).
+helping you to keep your tab population under a reasonable limit (1 to 9999, default 6).
 
 ## What it does
 
 Tab Ceiling has two modes: 
-1. Blocks the creation of new tabs past a configurable ceiling.
-2. Optionally, forces new tabs past the ceiling, or all new tabs to replace the page that they were spawned from.
+1. Blocks the creation of new tabs:
+  - on Desktop:  past a configurable ceiling.
+  - on Android:  with a manual toggle
+2. Optionally, forces new links to open in the tab that opened them.
+  - Option 1: do not do this (safe default)
+  - Option 2: when number of tabs exceeds the ceiling
+  - Option 3: always do this
 
 ## How it works
 
 Two mechanisms:
 
-1. **Content script**: clicks on `<a target="_blank">` links navigate the
-   current tab instead of opening a new one. No tab is created.
-2. **Background script**: the ceiling. If a tab is created anyway (the "+"
+1. **Background script**: the ceiling. If a tab is created (the "+"
    button, `window.open()` from page JS, "Open in new tab" from a long-press
    menu) and you're already at the ceiling, it closes the new tab and (optionally) loads its URL in
    the tab you came from.
+2. **Content script**: Optionally, clicks on `<a target="_blank">` links navigate the
+   current tab instead of opening a new one. No tab is created. This behavior can be disabled, enabled at ceiling, or always enabled.
 
-Private browsing windows get their own separate budget.
+Private browsing windows get their own separate tab budget.
 
 ## Usage
 1. Install the add-on from https://addons.mozilla.org/en-US/firefox/addon/tab-ceiling/
+2. Toggle "Limit open tabs" in settings to enable it.
 
-## Configuration
+## Configuration options
 
 Open the Firefox **⋮** menu → **Extensions** → **Tab Ceiling** to reach the
-   settings. On Android a browser action lives in that menu; there is no
+   settings. On Android a browser action lives in that menu and the menu is only visible from a tab that has content; there is no
    toolbar icon.
 
-The popup shows how much
-of your budget is spent and lets you change two things:
 
-- **Tab ceiling**: tabs allowed, 1 to 30. Default 6.
-- **Open blocked links in the origin tab**: when you are at the ceiling and a new tab
+### On Desktop
+
+The popup shows how much
+of your budget is spent and lets you change three things:
+
+- **"Block new tabs at ceiling"**: enable the headline feature of blocking new tabs (past the ceiling)
+- **Tab ceiling**: tabs allowed before new tab opening is blocked, 1 to 9999. Default 6.
+- **Load links in the current tab**: When a new tab
   is blocked, load its URL in the tab that the link came from instead of discarding it.
   Off by default to avoid interrupting the page you are reading.
+  Can be configured to take effect at the tab ceiling or to always be in effect.
+
+
+### On Android
+
+The settings let you change two things:
+
+- **"Block new tabs"**: enable the headline feature of blocking new tabs (past the ceiling)
+- **Load links in the current tab**: When a new tab
+  is blocked, load its URL in the tab that the link came from instead of discarding it.
+  Off by default to avoid interrupting the page you are reading.
+  Can be configured to take effect at the tab ceiling (doesn't work on Android) or to always be in effect.
 
 ## Technical details
 
 Installing the extension does nothing to tabs you already have open — it only
 reacts to tabs created from that point on. For the same reason, there is a
-20-second `STARTUP_GRACE_MS` window after browser start during which tab
-creation is ignored, so session restore can't be mistaken for you opening
+20-second `STARTUP_GRACE_MS` window after browser start during which new tabs are not force-closed,
+so session restore can't be mistaken for you opening
 tabs. You can verify this yourself before trusting it with a large session: open a few
 tabs over the limit, force-quit Firefox, reopen, and confirm they all come
 back.
+
+On Android, new tabs are detected via a classifier based on the web page dimensions: 
+FF Android loads new user-generated tabs a size of 0x0 pixels, but it loads tabs from memory at their display size.
+So we use the classifier to identify new tabs and force them closed if they are not loading from memory.
+With one exception: about:blank (the default new tab after you click "+") doesn't respond to a force-close event.
+So we wait until it has loaded a page, then force-close that page.
+
+We also save the tab IDs locally so that we can display how many tabs have opened/closed over the last hour and ignore those that have been loaded from memory.
+
 
 Configuration changes are saved immediately to `storage.local` and take effect without a restart.
 `STARTUP_GRACE_MS` and `URL_WAIT_MS` are constants only exposed in `background.js`.
@@ -66,7 +97,7 @@ Configuration changes are saved immediately to `storage.local` and take effect w
 | `settings.js` | Shared defaults, loaded by both background and popup |
 | `background.js` | Enforces the ceiling on `tabs.onCreated` |
 | `content.js` | Rewrites `target="_blank"` clicks to same-tab navigation |
-| `popup.html` / `popup.js` | The toolbar settings panel |
+| `popup.html` / `popup.js` | The settings panel |
 | `icon.svg` | Extension icon |
 | `build.sh` | Zips the extension into `build/<version>.zip` for upload |
 | `LICENSE` | AGPLv3 License terms |
@@ -77,6 +108,9 @@ Configuration changes are saved immediately to `storage.local` and take effect w
 Requires [Node.js](https://nodejs.org) and a USB cable.
 
 ```bash
+
+# `sudo apt-get install npm`
+
 npm install --global web-ext
 
 # On the phone, two separate steps:
@@ -87,11 +121,11 @@ npm install --global web-ext
 #            unlocks the Custom Add-on Collection menu, not this.)
 #
 
-adb devices          # confirm the phone shows up
-web-ext run --target=firefox-android --android-device=<device-id>
+adb devices          # confirm the phone shows up, note device-id
+npx web-ext run --target=firefox-android --android-device=<device-id>
 ```
 
-Run this script on the computer while the phone is connected via adb.
+Run this script from the extension's source directory on the computer while the phone is connected via adb.
 `web-ext run` side-loads the extension without signing, and reloads on file
 changes.
 
@@ -118,12 +152,11 @@ Nightly as your daily browser.
 ## Known limitations
 
 - The total number of open tabs is not available on Android.
-  We use the number of active (loaded) tabs instead, and have a workaround so
-  that inactive tabs are not blocked when loaded. 
-  This workaround needs to be tested.
+  Instead of providing a ceiling, we just have tab blocking controlled by a manual toggle.
+- Closing new tabs started from "+" can be hit-or-miss on Android. For unclear reasons, it seems to work about half the time. (`about:blank` cannot be closed.)
 - `window.open()` calls from page scripts aren't intercepted by the content
   script, so those tabs briefly appear before the background script closes
   them.
-- The current interface limits tabs to 0 to 30. Would be good to raise limit.
+- The current interface hides the ceiling when not active. Would be nice to show.
 - The extension is easy to uninstall. The point is to help you be organized, not overcome addictions.
 - Firefox for iOS doesn't support extensions at all. Thus iOS is not supported.

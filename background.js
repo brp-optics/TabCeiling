@@ -49,6 +49,13 @@ const BREAKER_MAX_CLOSURES = 3;
 // at its causal link, one step earlier than the breaker.
 const CLOSE_QUIET_MS = 500;
 
+// Fenix's "+" tab is not a real GeckoView tab while it is blank: tabs.remove
+// rejects with "not supported", and tabs.query does not even return it. It
+// becomes removable once it navigates somewhere. So when a close fails we
+// watch the tab and close it the moment it gets a real URL — the blank tab
+// stays, but the browsing is still blocked. Give up after this long.
+const PENDING_MAX_MS = 10 * 60 * 1000;
+
 // ---------------------------------------------------------------------------
 
 // Tab IDs we've already acted on, so a race can't make us handle one twice.
@@ -60,6 +67,9 @@ let breakerTripped = false;
 
 // When we last closed a tab ourselves. See CLOSE_QUIET_MS.
 let lastCloseAt = 0;
+
+// Tabs we wanted to close but couldn't yet. tabId -> teardown function.
+const pending = new Map();
 
 // Set once at startup. Android needs a stricter rule about which tab
 // creations we're willing to act on — see the check in the listener.
@@ -144,9 +154,11 @@ browser.tabs.onCreated.addListener(async (tab) => {
     // later, so we may have to wait for it.
     const url = await resolveUrl(tab);
 
-    await browser.tabs.remove(tab.id);
-    lastCloseAt = Date.now();
-    closures.push(lastCloseAt);
+    if (!(await closeTab(tab.id))) {
+      // Blank "+" tab on Android. Wait for it to go somewhere, then close it.
+      deferClose(tab.id);
+      return;
+    }
 
     if (settings.linkMode !== "never" && url && destination) {
       await browser.tabs.update(destination.id, { url, active: true });
@@ -159,8 +171,52 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
 browser.tabs.onRemoved.addListener((tabId) => {
   handled.delete(tabId);
+  const stop = pending.get(tabId);
+  if (stop) stop();
   recordActivity(-1);
 });
+
+/**
+ * Close a tab, reporting whether it actually went. Returns false rather than
+ * throwing when the browser refuses, which Fenix does for a blank "+" tab.
+ */
+async function closeTab(tabId) {
+  try {
+    await browser.tabs.remove(tabId);
+    lastCloseAt = Date.now();
+    closures.push(lastCloseAt);
+    return true;
+  } catch (err) {
+    console.warn("Tab Ceiling: could not close tab", tabId, String(err));
+    return false;
+  }
+}
+
+/**
+ * Watch a tab we could not close and close it as soon as it navigates
+ * somewhere real. Idempotent, self-cleaning, and bounded by PENDING_MAX_MS so
+ * a blank tab left open all day doesn't keep a listener alive forever.
+ */
+function deferClose(tabId) {
+  if (pending.has(tabId)) return;
+
+  const stop = () => {
+    browser.tabs.onUpdated.removeListener(onUpdated);
+    clearTimeout(timer);
+    pending.delete(tabId);
+  };
+
+  const onUpdated = async (id, changeInfo) => {
+    if (id !== tabId || !isRealUrl(changeInfo.url)) return;
+    stop();
+    if (breakerTripped || !breakerAllows()) return;
+    await closeTab(tabId);
+  };
+
+  const timer = setTimeout(stop, PENDING_MAX_MS);
+  pending.set(tabId, stop);
+  browser.tabs.onUpdated.addListener(onUpdated);
+}
 
 /**
  * Append to the rolling activity log the popup reads. Display only — the close

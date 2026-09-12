@@ -5,15 +5,26 @@ All notable changes to Tab Ceiling are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - 2026-09-08
+## [1.5.2] - 2026-09-13
+## Changed
+- Desktop ceiling is now off by default. Click "Limit open tabs above ceiling" to enable.
+- Desktop tab ceiling threshold is now displayed and can be changed even when ceiling is disabled. We hope that by displaying it we can reduce new user confusion and surprise.
+
+## [1.5.1] - 2026-09-13
+### Fixed
+- Android detects when a tab is supposed to close on page load and now force-closes the tab.
+  This fixes the problem with the "+" tab (about:blank), which cannot be force-closed.
+
+## [1.5.0] - 2026-09-12
 - This version customizes the interfaces for Android and Desktop, 
   because there is no way to read the actual number of tabs on Android.
 
 ### Added
-- "Limit open tabs" is now a standalone toggle on Desktop, allowing the tab limit to be disabled without changing its value. It should be off by default, although this has not been tested.
+- "Limit open tabs" is now a standalone toggle on Desktop, allowing the tab limit to be disabled without changing its value.
 - "Block new tabs" is now a standalone toggle on Android. 
 - Android provides number of tabs opened and closed in the last hour, in lieu of an absolute tab count.
 - Android interface now shows if the circuit breaker has been hit.
+- Android adds a classifier for loading tabs based on their dimensions. 
 
 ### Changed
 - The interface is now platform-dependent: a master toggle and a ceiling setter are shown on Desktop, 
@@ -22,18 +33,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A numerical ceiling doesn't make sense where we can't know the absolute number of tabs.
 - On Desktop, the tab ceiling is no longer capped at 30, and the interface allows typing in numbers.
 - The arrow buttons used to set the tab ceiling now scale their increment with the current tab ceiling setting.
-- The row of pips now hides itself above 30 tabs or pips.
+- The row of pips now hides itself above 30 tabs / pips.
 
-## Fixed
+### Fixed
 - Tab opening detection on Android is now experimentally verified.
   It only counts (and blocks) tabs which are newly opened by the user (as opposed to loaded from an inactive tab).
 - Platform detection was previously dependent on successfully reading and counting the open tabs, 
   which would prevent the interface from showing if the counting errored out. Now independent.
 
-## Known issues
+### Known issues
 - Tab opening detection on Android fails if user uses the "+" button.
 - Unchecking "Limit Open Tabs" on Desktop hides the ceiling. Would be better if ceiling were greyed out.
 
+## [1.4.0] - 2026-09-08
+This version attempted to implement the features listed in the 1.5.0 changelog. 
+However, mismatching files were deployed resulting in a broken extension.
 
 ## [1.3.0] - 2026-09-02
 - This version attempts to fix a bug in tab closing behavior on Android,
@@ -41,18 +55,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an inactive tab was activated.
 
 ### Changed
-    We have to take some pains to make sure that when an unloaded or inactive tab is activated,
-    it doesn't count as a new tab load and get closed automatically. We implement a cooldown
-    period on new tab closures controlled by CLOSE_QUIET_MS (default 500 ms)
-    such that a new tab opening less than a 500 ms after the last tab closed
-    or a new tab opening with a URL already loaded and no openerTabID is considered a legacy tab and not closed.
-    We also implement a circuit breaker, 
-    where 3 forced closures in 10 seconds will cause the addon to stop enforcing the tab limit until FF is restarted.
-    This should limit the damage if we have a bug which closes tabs that were not actually new.
+  We have to take some pains to make sure that when an unloaded or inactive tab is activated,
+  it doesn't count as a new tab load and get closed automatically. We implement a cooldown
+  period on new tab closures controlled by CLOSE_QUIET_MS (default 500 ms)
+  such that a new tab opening less than a 500 ms after the last tab closed
+  or a new tab opening with a URL already loaded and no openerTabID is considered a legacy tab and not closed.
+  We also implement a circuit breaker, 
+   where 3 forced closures in 10 seconds will cause the addon to stop enforcing the tab limit until FF is restarted.
+  This should limit the damage if we have a bug which closes tabs that were not actually new.
 
 ### Known issues
-    FF on Android only provides a count of currently loaded tabs to extensions.
-    This means that inactive tabs and tabs that are unloaded (not in RAM) will not appear in the tab count.
+  FF on Android only provides a count of currently loaded tabs to extensions.
+  This means that inactive tabs and tabs that are unloaded (not in RAM) will not appear in the tab count.
 
 ## [1.2.0] - 2026-08-31
 
@@ -89,8 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of appending to it. Deleted files could previously survive in later builds.
 
 ### Known bugs
-    FF on Android only provides a count of currently loaded tabs to extensions.
-    This means that archived tabs and tabs that are not in RAM will not appear in the tab count.
+  FF on Android only provides a count of currently loaded tabs to extensions.
+  This means that archived tabs and tabs that are not in RAM will not appear in the tab count.
 
 ## [1.1.0] - 2026-08-30
 
