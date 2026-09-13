@@ -127,8 +127,6 @@ Requires [Node.js](https://nodejs.org) and a USB cable.
 
 # `sudo apt-get install npm`
 
-npm install --global web-ext
-
 # On the phone, two separate steps:
 #   Android: Settings > About phone > tap Build number 7 times,
 #            then Developer options > USB debugging.
