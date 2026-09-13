@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Removed unused CSS left over from a development build.
+- Icon updated with brighter arrow for higher visibility at low resolutions.
 
 ### Notes for future work
 
@@ -34,10 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.3] - 2026-09-14
 ### Changed
 - Icon updated with wider arrow for higher visibility at low resolutions.
-
-### Future changes
-- "Override for one tab" or "Override for 30 seconds" button in settings will greatly increase usability.
-  Too easy to toggle off and forget otherwise.
 
 ## [1.5.2] - 2026-09-13
 ### Changed
