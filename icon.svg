@@ -14,12 +14,12 @@
     <path d="M90 100 Q92.2 100 94 84 Q94 80 98 80 L113 80 Q117 80 117 84 Q118.8 100 121 100 Z"/>
   </g>
 
-  <path d="M20 34 C 50 34, 62 54, 84 82" fill="none" stroke="#3F3D8A" stroke-width="23"
+  <path d="M20 34 C 50 34, 62 54, 100 98" fill="none" stroke="#3F3D8A" stroke-width="30"
         stroke-linecap="round" stroke-linejoin="round"/>
-  <polygon points="96,96 91.4,51.3 53.7,80.9" fill="none" stroke="#3F3D8A" stroke-width="5"
+  <polygon points="120,120 113.5,72.7 74.2,106.7" fill="none" stroke="#3F3D8A" stroke-width="5"
         stroke-linejoin="round"/>
 
-  <path d="M20 34 C 50 34, 62 54, 84 82" fill="none" stroke="#FF4435" stroke-width="20"
+  <path d="M20 34 C 50 34, 62 54, 100 98" fill="none" stroke="#FF0000" stroke-width="20"
         stroke-linecap="round" stroke-linejoin="round"/>
-  <polygon points="96,96 91.4,51.3 53.7,80.9" fill="#FF4435"/>
+  <polygon points="120,120 113.5,72.7 74.2,106.7" fill="#FF0000"/>
 </svg>

@@ -17,11 +17,11 @@ TAB_W, TAB_H, INSET, RADIUS = 31, 20, 4, 4
 ROWS = [(12, 24), (17, 52), (22, 80)]     # (x offset, top) per row
 PER_ROW, PITCH = 3, 34
 
-CURVE = ((20, 34), (50, 34), (62, 54), (84, 82))
-ARROW_TIP, ARROW_LEN, ARROW_HALF = (96, 96), 38, 24
+CURVE = ((20, 34), (50, 34), (62, 54), (100, 98))
+ARROW_TIP, ARROW_LEN, ARROW_HALF = (120, 120), 40, 26
 
-STROKE, HALO = 20, 23                      # halo above ~14 starts eating tabs
-BG, TAB_FILL, LINE = "#3F3D8A", "#FFFFFF", "#FF4435"
+STROKE, HALO = 20, 30                      # halo above ~14 starts eating tabs
+BG, TAB_FILL, LINE = "#3F3D8A", "#FFFFFF", "#FF0000"
 
 
 def tab(x0, y0, w=TAB_W, h=TAB_H, inset=INSET, r=RADIUS):
