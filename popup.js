@@ -19,13 +19,26 @@ const el = {
   modeHint: document.getElementById("modeHint")
 };
 
+// The middle mode fires on the same condition on both platforms — a link was
+// blocked — but the condition is reached differently: a count on Desktop, the
+// toggle on Android. Same behaviour, so it gets the label that describes it
+// truthfully on each rather than being disabled on Android.
+const MODE_LABELS = {
+  desktop: { ceiling: "At ceiling" },
+  android: { ceiling: "When blocked" }
+};
+
 const MODE_HINTS = {
-  never:
-    "A blocked link is dropped. The page you're reading is never taken away.",
-  ceiling:
-    "Once you're at the ceiling, a blocked link loads in the tab you tapped it from.",
-  always:
-    "Links that want a new tab always load in the tab you tapped them from, at any count."
+  desktop: {
+    never: "A blocked link is dropped. The page you're reading is never taken away.",
+    ceiling: "Once you're at the ceiling, a blocked link loads in the tab you tapped it from.",
+    always: "Links that want a new tab always load in the tab you tapped them from, at any count."
+  },
+  android: {
+    never: "A blocked link is dropped. The page you're reading is never taken away.",
+    ceiling: "When a new tab is blocked, its link loads in the tab you tapped it from.",
+    always: "Links that want a new tab always load in the tab you tapped them from, blocking or not."
+  }
 };
 
 let settings = { ...DEFAULTS };
@@ -122,10 +135,16 @@ async function renderBreaker() {
 function renderPlatform() {
   const on = ceilingEnabled(settings);
 
-  el.gauge.hidden = isAndroid || !on;
+  // The ceiling and its readout stay on screen while the toggle is off. A
+  // number that vanishes when you untick something is how people end up unsure
+  // what the setting was, and it needs to be adjustable before you switch on.
+  el.gauge.hidden = isAndroid;
   el.ceilingToggleRow.hidden = isAndroid;
-  el.ceilingRow.hidden = isAndroid || !on;
+  el.ceilingRow.hidden = isAndroid;
   el.blockRow.hidden = !isAndroid;
+
+  el.gauge.classList.toggle("is-inactive", !on);
+  el.ceilingRow.classList.toggle("is-inactive", !on);
 
   el.ceilingOn.checked = on;
   el.blockNew.checked = settings.blockNew;
@@ -194,7 +213,7 @@ function render() {
 
 function renderStatus(on, limit, over) {
   if (!on) {
-    el.status.textContent = "";
+    el.status.textContent = "Ceiling off — new tabs aren't blocked.";
   } else if (over > 0) {
     el.status.textContent =
       `${over} over — new tabs get closed until you're under ${limit}.`;
@@ -222,10 +241,18 @@ function renderPips(limit, over) {
 }
 
 function renderModes() {
+  const platform = isAndroid ? "android" : "desktop";
+
   for (const button of el.seg.querySelectorAll("button[data-mode]")) {
-    const selected = button.dataset.mode === settings.linkMode;
+    const mode = button.dataset.mode;
+    const selected = mode === settings.linkMode;
+
+    const label = MODE_LABELS[platform][mode];
+    if (label) button.textContent = label;
+
     button.setAttribute("aria-checked", String(selected));
     button.tabIndex = selected ? 0 : -1;
   }
-  el.modeHint.textContent = MODE_HINTS[settings.linkMode] || "";
+
+  el.modeHint.textContent = MODE_HINTS[platform][settings.linkMode] || "";
 }

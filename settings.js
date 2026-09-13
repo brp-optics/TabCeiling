@@ -29,7 +29,11 @@ const DEFAULTS = {
   // Desktop only. Previously "off" was encoded as a tabLimit one past the max,
   // which meant the limit and its on/off state shared one control and neither
   // could change without the other.
-  ceilingOn: true,
+  //
+  // Off by default, matching blockNew on Android: nothing starts closing tabs
+  // before the user has seen the settings. The ceiling value stays visible and
+  // editable while off, so the number means something when they switch it on.
+  ceilingOn: false,
 
   // Android only, and binary for the same reason: with no usable count, the
   // honest options are block the tabs you open, or don't. The classifier in

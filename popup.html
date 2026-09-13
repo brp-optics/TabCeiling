@@ -191,6 +191,10 @@
   }
   .alert.show { display: block; }
 
+  /* Shown but clearly not in force. Kept legible rather than greyed to
+     unreadability, since the number is still editable. */
+  .is-inactive { opacity: 0.5; }
+
   .setup { display: none; }
   .setup.show { display: block; }
 
@@ -259,8 +263,8 @@
 
   <div class="row" id="ceilingToggleRow">
     <span>
-      <span class="label">Limit open tabs</span>
-      <span class="hint">Close new tabs once you are over the ceiling.</span>
+      <span class="label">Block new tabs at ceiling</span>
+      <span class="hint">Tabs you open are closed once you are over the ceiling.</span>
     </span>
     <input type="checkbox" id="ceilingOn">
   </div>

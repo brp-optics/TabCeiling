@@ -5,10 +5,23 @@ All notable changes to Tab Ceiling are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-09-14
+### Changed
+- Icon updated with wider arrow for higher visibility at low resolutions.
+
+### Future changes
+- "Override for one tab" or "Override for 30 seconds" button in settings will greatly increase usability.
+  Too easy to toggle off and forget otherwise.
+
 ## [1.5.2] - 2026-09-13
-## Changed
-- Desktop ceiling is now off by default. Click "Limit open tabs above ceiling" to enable.
-- Desktop tab ceiling threshold is now displayed and can be changed even when ceiling is disabled. We hope that by displaying it we can reduce new user confusion and surprise.
+### Changed
+- Desktop ceiling is now off by default. Click "Block new tabs at ceiling" to enable.
+- Desktop tab ceiling threshold is now displayed and can be changed even when ceiling is disabled. 
+  We hope that by displaying it we can reduce new user confusion and surprise.
+- Renamed UI element in settings for clarity: "At ceiling" became "When blocked" on Android, 
+  as Android doesn't have a ceiling setting.
+- Icon updated and large-size icons added to manifest.
+- UI hints updated.
 
 ## [1.5.1] - 2026-09-13
 ### Fixed

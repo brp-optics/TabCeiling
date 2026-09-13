@@ -12,37 +12,53 @@ helping you to keep your tab population under a reasonable limit (1 to 9999, def
 ## What it does
 
 Tab Ceiling has two modes: 
-1. Blocks the creation of new tabs:
+1. Tab Ceiling blocks the creation of new tabs:
   - on Desktop:  past a configurable ceiling.
   - on Android:  with a manual toggle
-2. Optionally, forces new links to open in the tab that opened them.
+2. Optionally, Tab Ceiling forces new links to open in the tab that opened them.
   - Option 1: do not do this (safe default)
-  - Option 2: when number of tabs exceeds the ceiling
+  - Option 2: when the tab would be locked (due to the ceiling or manual toggle)
   - Option 3: always do this
+
+## Tab and data safety
+
+Tab Ceiling takes care to not block tabs on session restore and on load from background (Android).
+It even has a "circuit breaker" which stops tab blocking if it is happening too quickly, 
+to avoid the potential for a bug causing runaway tab closures. 
+All settings that could cause data loss (page redirection, tab blocking) are opt-in, and disabled by 
+default when the extension is first installed. 
+
+The failure of existing extensions to provide safety was one of the core motivations for this project.
+
+## Fully offline, privacy preserving
+
+Although we need the "all tabs" permission from Firefox to count and block tabs, 
+Tab Ceiling collects and exports no data, and has no ads. 
+It is fully on your device, and fully offline.
 
 ## How it works
 
 Two mechanisms:
 
-1. **Background script**: the ceiling. If a tab is created (the "+"
-   button, `window.open()` from page JS, "Open in new tab" from a long-press
+1. **Background script**: the ceiling. If a tab is created (by the "+"
+   button, by `window.open()` from page JS, or by "Open in new tab" from a long-press
    menu) and you're already at the ceiling, it closes the new tab and (optionally) loads its URL in
    the tab you came from.
 2. **Content script**: Optionally, clicks on `<a target="_blank">` links navigate the
-   current tab instead of opening a new one. No tab is created. This behavior can be disabled, enabled at ceiling, or always enabled.
+   current tab instead of opening a new one. No tab is created. 
+   This behavior can be disabled, enabled at ceiling, or always enabled.
 
 Private browsing windows get their own separate tab budget.
 
 ## Usage
 1. Install the add-on from https://addons.mozilla.org/en-US/firefox/addon/tab-ceiling/
-2. Toggle "Limit open tabs" in settings to enable it.
+2. Toggle "Block new tabs" or "Block new tabs at ceiling" in settings to enable it.
 
-## Configuration options
+## Settings and configuration options
 
 Open the Firefox **⋮** menu → **Extensions** → **Tab Ceiling** to reach the
    settings. On Android a browser action lives in that menu and the menu is only visible from a tab that has content; there is no
    toolbar icon.
-
 
 ### On Desktop
 
@@ -157,6 +173,5 @@ Nightly as your daily browser.
 - `window.open()` calls from page scripts aren't intercepted by the content
   script, so those tabs briefly appear before the background script closes
   them.
-- The current interface hides the ceiling when not active. Would be nice to show.
 - The extension is easy to uninstall. The point is to help you be organized, not overcome addictions.
 - Firefox for iOS doesn't support extensions at all. Thus iOS is not supported.
