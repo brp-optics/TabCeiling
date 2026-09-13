@@ -195,40 +195,6 @@
      unreadability, since the number is still editable. */
   .is-inactive { opacity: 0.5; }
 
-  .setup { display: none; }
-  .setup.show { display: block; }
-
-  .seed {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-  }
-  .seed input {
-    flex: 1;
-    min-width: 0;
-    height: 48px;
-    padding: 0 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--paper);
-    color: var(--ink);
-    font: inherit;
-    font-family: ui-monospace, "Roboto Mono", monospace;
-    font-size: 17px;
-  }
-  .seed button {
-    flex: none;
-    height: 48px;
-    padding: 0 18px;
-    border: 0;
-    border-radius: 10px;
-    background: var(--signal);
-    color: #fff;
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
   .linkish {
     background: none;
     border: 0;
@@ -239,6 +205,20 @@
     text-decoration: underline;
     cursor: pointer;
   }
+
+  /* Deliberately plain and at the bottom: an escape hatch should be reachable,
+     not inviting. */
+  .wide {
+    width: 100%;
+    min-height: var(--tap);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+  }
+  .wide:active { background: var(--raised); }
 </style>
 </head>
 <body>
@@ -287,6 +267,11 @@
       <button type="button" role="radio" data-mode="always" aria-checked="false">Always</button>
     </div>
     <p class="hint" id="modeHint"></p>
+  </div>
+
+  <div class="block">
+    <button class="wide" id="grantBtn" type="button">Allow one new tab</button>
+    <p class="hint" id="grantHint"></p>
   </div>
 
   <p class="foot" id="activity"></p>

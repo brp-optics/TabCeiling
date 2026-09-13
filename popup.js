@@ -16,7 +16,9 @@ const el = {
   blockRow: document.getElementById("blockRow"),
   blockNew: document.getElementById("blockNew"),
   activity: document.getElementById("activity"),
-  modeHint: document.getElementById("modeHint")
+  modeHint: document.getElementById("modeHint"),
+  grantBtn: document.getElementById("grantBtn"),
+  grantHint: document.getElementById("grantHint")
 };
 
 // The middle mode fires on the same condition on both platforms — a link was
@@ -72,6 +74,7 @@ async function init() {
     await renderBreaker();
     render();
     await renderActivity();
+    await renderGrant();
   } catch (err) {
     el.status.textContent = "Couldn't read tabs: " + err.message;
     console.error("Tab Ceiling popup:", err);
@@ -99,6 +102,18 @@ async function init() {
   el.blockNew.addEventListener("change", () => {
     settings.blockNew = el.blockNew.checked;
     saveSettings({ blockNew: settings.blockNew });
+  });
+
+  el.grantBtn.addEventListener("click", async () => {
+    // Taps stack: three taps, three tabs.
+    await addGrant(1);
+    await renderGrant();
+  });
+
+  el.grantHint.addEventListener("click", async (event) => {
+    if (!event.target.closest("#grantCancel")) return;
+    await clearGrant();
+    await renderGrant();
   });
 
   el.seg.addEventListener("click", (event) => {
@@ -168,6 +183,36 @@ async function renderActivity() {
   const parts = [`${opened} opened`];
   if (closed) parts.push(`${closed} closed`);
   el.activity.textContent = `Last hour: ${parts.join(", ")}.`;
+}
+
+/**
+ * The escape hatch for pages that genuinely need a new tab. No expiry: a slow
+ * page or a distraction shouldn't quietly revoke something you asked for, so
+ * an unused grant sits until it's spent or cancelled.
+ */
+async function renderGrant() {
+  const grant = await loadGrant().catch(() => null);
+
+  if (!grant) {
+    el.grantBtn.textContent = "Allow one new tab";
+    el.grantHint.textContent =
+      "Lets the next new tab through, for pages that need one.";
+    return;
+  }
+
+  el.grantBtn.textContent = "Allow one more";
+
+  const left = grant.n == null
+    ? "New tabs allowed"
+    : `${grant.n} tab${grant.n === 1 ? "" : "s"} allowed`;
+
+  el.grantHint.textContent = left + " — ";
+  const cancel = document.createElement("button");
+  cancel.id = "grantCancel";
+  cancel.type = "button";
+  cancel.className = "linkish";
+  cancel.textContent = "cancel";
+  el.grantHint.appendChild(cancel);
 }
 
 function stepFor(value) {

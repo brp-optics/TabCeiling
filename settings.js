@@ -21,6 +21,19 @@ const LINK_MODES = ["never", "ceiling", "always"];
 const ACTIVITY_WINDOW_MS = 60 * 60 * 1000;
 const ACTIVITY_KEY = "tabActivity";
 
+// A standing permission to let new tabs through, for pages that genuinely
+// need one (about:debugging, OAuth handoffs, print previews).
+//
+// Shape: { n, until }. Both are nullable and mean "no bound":
+//   { n: 1,    until: null }  one tab, no deadline  — the button today
+//   { n: 3,    until: null }  three tabs, no deadline — tapped three times
+//   { n: null, until: <ts> }  unlimited until a moment — a future "pause for
+//                             10 minutes" needs no change to consumeGrant()
+//
+// No expiry by default on purpose: a slow page load or a distraction should
+// not silently revoke something you asked for.
+const GRANT_KEY = "tabGrant";
+
 const DEFAULTS = {
   // Desktop only. Firefox for Android reports just the loaded tabs and often
   // none at all, so there is no total to compare a ceiling against there.
@@ -96,6 +109,62 @@ async function loadActivity() {
   const events = Array.isArray(stored[ACTIVITY_KEY]) ? stored[ACTIVITY_KEY] : [];
   const cutoff = Date.now() - ACTIVITY_WINDOW_MS;
   return events.filter((e) => e && e.t > cutoff);
+}
+
+function grantActive(grant) {
+  if (!grant) return false;
+  if (grant.until != null && Date.now() > grant.until) return false;
+  if (grant.n != null && grant.n <= 0) return false;
+  return true;
+}
+
+async function loadGrant() {
+  const stored = await browser.storage.local.get(GRANT_KEY);
+  const grant = stored[GRANT_KEY];
+  return grantActive(grant) ? grant : null;
+}
+
+/**
+ * Spend one tab from the grant. Returns whether this tab is allowed through.
+ * Only call when the tab would otherwise have been blocked — spending a grant
+ * on a tab that was going to be allowed anyway is a silent theft.
+ */
+async function consumeGrant() {
+  const stored = await browser.storage.local.get(GRANT_KEY);
+  const grant = stored[GRANT_KEY];
+
+  if (!grantActive(grant)) {
+    if (grant) await browser.storage.local.remove(GRANT_KEY);
+    return false;
+  }
+
+  // Unlimited-until-a-deadline grants are not decremented.
+  if (grant.n == null) return true;
+
+  const n = grant.n - 1;
+  if (n > 0) {
+    await browser.storage.local.set({ [GRANT_KEY]: { ...grant, n } });
+  } else {
+    await browser.storage.local.remove(GRANT_KEY);
+  }
+  return true;
+}
+
+/**
+ * Add tabs to the grant. Taps stack. An unlimited grant already in force is
+ * left alone rather than being narrowed to a count.
+ */
+async function addGrant(count = 1) {
+  const grant = await loadGrant();
+  if (grant && grant.n == null) return grant;
+
+  const next = { n: (grant ? grant.n : 0) + count, until: grant ? grant.until : null };
+  await browser.storage.local.set({ [GRANT_KEY]: next });
+  return next;
+}
+
+function clearGrant() {
+  return browser.storage.local.remove(GRANT_KEY);
 }
 
 /**

@@ -5,6 +5,32 @@ All notable changes to Tab Ceiling are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-09-14
+### Added
+
+- **"Allow one new tab"** button at the bottom of the settings, 
+  for allowing tabs from realy need it without disabling the extension. 
+  Useful for pages like about:debugging, print previews, and OAuth. 
+  Nice to avoid forgetting to re-enable the extension later. 
+
+  Behavior is as follows: 
+  - After a single button press, let a single tab through that would otherwise be blocked.
+  - Presses stack: three taps will allow three blocked tabs to subsequently open.
+  - Only tabs that would be blocked count.
+  - No expiry. A slow page load or a slow / distracted user shouldn't be 
+     inconvenienced. 
+  - Placed at the bottom, deliberately plain. It is an escape hatch, and should
+    be reachable without being the first thing your thumb finds.
+
+### Changed
+
+- Removed unused CSS left over from a development build.
+
+### Notes for future work
+
+- The unblocked tab grace count is stored as `{ n, until }`, with a null field meaning "no bound". "Pause for 10 minutes" would be `{ n: null, until: <timestamp> }`and
+  needs no change to the code that implements the tab grace count/period.
+
 ## [1.5.3] - 2026-09-14
 ### Changed
 - Icon updated with wider arrow for higher visibility at low resolutions.

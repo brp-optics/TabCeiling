@@ -142,6 +142,13 @@ browser.tabs.onCreated.addListener(async (tab) => {
       settings.linkMode === "always" && tab.openerTabId != null;
 
     if (!shouldBlock && !collapseLink) return;
+
+    // An explicit grant from the popup beats everything below, including
+    // "always" mode — the point of the button is to let one tab through
+    // untouched, not to skip only the ceiling. Checked here, after we know a
+    // block would otherwise happen, so an ordinary tab never spends it.
+    if (await consumeGrant()) return;
+
     if (!breakerAllows()) return;
 
     handled.add(tab.id);
