@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Tab Ceiling",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Caps how many new tabs you can open, and can collapse links that want a new tab into the tab you tapped them from.",
   "browser_specific_settings": {
     "gecko": {

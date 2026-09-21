@@ -113,6 +113,20 @@ browser.tabs.onCreated.addListener(async (tab) => {
     // is the browser backfilling the screen, not you.
     if (Date.now() - lastCloseAt < CLOSE_QUIET_MS) return;
 
+    // On Android, opening our own settings panel fires tabs.onCreated. It
+    // arrives as about:blank, often at 0x0, so the classifier reads it as a
+    // tab you opened — and would then block it, count it in the activity
+    // readout, or spend a pending grant on it.
+    //
+    // It is not a real tab, and tabs.get knows: across every sample it failed
+    // on all four panel openings ("Invalid tab ID") and succeeded on every
+    // real tab, "+" tabs included. Any failure skips the tab, so a surprise
+    // here fails open — the tab is let through rather than closed.
+    //
+    // This await sits after the dimension check deliberately: that one must
+    // be read synchronously, and this one doesn't care about timing.
+    if (!(await isRealTab(tab.id))) return;
+
     // Everything above this line filters out tabs the browser created. What
     // reaches here is a tab you opened, so it belongs in the statistic —
     // whether or not we go on to enforce against it. The gates below govern
@@ -142,13 +156,6 @@ browser.tabs.onCreated.addListener(async (tab) => {
       settings.linkMode === "always" && tab.openerTabId != null;
 
     if (!shouldBlock && !collapseLink) return;
-
-    // An explicit grant from the popup beats everything below, including
-    // "always" mode — the point of the button is to let one tab through
-    // untouched, not to skip only the ceiling. Checked here, after we know a
-    // block would otherwise happen, so an ordinary tab never spends it.
-    if (await consumeGrant()) return;
-
     if (!breakerAllows()) return;
 
     handled.add(tab.id);
@@ -182,6 +189,19 @@ browser.tabs.onRemoved.addListener((tabId) => {
   if (stop) stop();
   recordActivity(-1);
 });
+
+/**
+ * Whether the browser recognises this as an actual tab. Our own settings panel
+ * on Android fires onCreated but is not one, and tabs.get rejects it.
+ */
+async function isRealTab(tabId) {
+  try {
+    await browser.tabs.get(tabId);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
 
 /**
  * Close a tab, reporting whether it actually went. Returns false rather than
