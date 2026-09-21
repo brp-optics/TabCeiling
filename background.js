@@ -56,6 +56,14 @@ const CLOSE_QUIET_MS = 500;
 // stays, but the browsing is still blocked. Give up after this long.
 const PENDING_MAX_MS = 10 * 60 * 1000;
 
+// How long to wait before taking a second look at a tab that arrived at 0x0 on
+// Android. See the classifier in the listener. Restores have been seen to
+// activate and size within 4-28ms; tabs you open stay inactive and 0x0 for
+// seconds. 150ms sits well clear of both — and if a tab you opened in the
+// foreground is caught by it, the result is that tab being let through, which
+// is the safe direction to be wrong in.
+const RESTORE_PROBE_MS = 150;
+
 // ---------------------------------------------------------------------------
 
 // Tab IDs we've already acted on, so a race can't make us handle one twice.
@@ -90,20 +98,14 @@ browser.tabs.onCreated.addListener(async (tab) => {
     // acted on twice.
     if (handled.has(tab.id)) return;
 
-    // Android's only reliable tell that this is the browser materialising a
-    // tab rather than you opening one: a restored tab already has the screen's
-    // dimensions at creation, because it is about to be displayed. A tab you
-    // opened is 0x0 for the first few tens of milliseconds — including one
-    // that takes focus immediately, which was the case worth checking.
+    // Android: is this the browser putting an existing tab back on screen, or
+    // a tab you just opened? A restore is displayed straight away, so it has
+    // the screen's dimensions and becomes the active tab almost instantly. A
+    // tab you open does neither for seconds — a "+" tab until you start
+    // typing, a background link until you visit it.
     //
-    // Measured on Fenix: four restores all 378x737 at creation, four opened
-    // tabs (the "+" button, three background links, one foreground PDF link)
-    // all 0x0, becoming 378x737 about 74ms later.
-    //
-    // Two things this depends on. It must be read HERE, synchronously, before
-    // any await — the signal is gone within a frame. And it must not run on
-    // desktop, where newly created tabs already carry the window's dimensions
-    // and this test would skip everything.
+    // Fast path: most restores already have their size at creation.
+    // (Must be read here, before any await, while it is still true.)
     if (isAndroid && (tab.width > 0 || tab.height > 0)) return;
 
     // The desktop equivalent. See looksRestored.
@@ -113,19 +115,22 @@ browser.tabs.onCreated.addListener(async (tab) => {
     // is the browser backfilling the screen, not you.
     if (Date.now() - lastCloseAt < CLOSE_QUIET_MS) return;
 
-    // On Android, opening our own settings panel fires tabs.onCreated. It
-    // arrives as about:blank, often at 0x0, so the classifier reads it as a
-    // tab you opened — and would then block it, count it in the activity
-    // readout, or spend a pending grant on it.
-    //
-    // It is not a real tab, and tabs.get knows: across every sample it failed
-    // on all four panel openings ("Invalid tab ID") and succeeded on every
-    // real tab, "+" tabs included. Any failure skips the tab, so a surprise
-    // here fails open — the tab is let through rather than closed.
-    //
-    // This await sits after the dimension check deliberately: that one must
-    // be read synchronously, and this one doesn't care about timing.
-    if (!(await isRealTab(tab.id))) return;
+    if (isAndroid) {
+      // Slow path. Some restores arrive at 0x0 and get their size a few
+      // milliseconds later — seen twice, on a Ground News tab and an archived
+      // Wikipedia tab, the second of which we then closed. So a 0x0 tab gets
+      // a second look before it is treated as yours.
+      const later = await probeTab(tab.id, RESTORE_PROBE_MS);
+
+      // tabs.get rejects our own settings panel, which fires onCreated on
+      // Android but is not a real tab. Treating it as one meant opening
+      // settings could be counted, blocked, or spend a pending grant.
+      if (!later) return;
+
+      if (later.active || later.width > 0 || later.height > 0) return;
+    } else if (!(await isRealTab(tab.id))) {
+      return;
+    }
 
     // Everything above this line filters out tabs the browser created. What
     // reaches here is a tab you opened, so it belongs in the statistic —
@@ -189,6 +194,19 @@ browser.tabs.onRemoved.addListener((tabId) => {
   if (stop) stop();
   recordActivity(-1);
 });
+
+/**
+ * Wait, then re-read a tab. Null if the browser no longer recognises it — or
+ * never did, as with our own settings panel on Android.
+ */
+async function probeTab(tabId, delayMs) {
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+  try {
+    return await browser.tabs.get(tabId);
+  } catch (err) {
+    return null;
+  }
+}
 
 /**
  * Whether the browser recognises this as an actual tab. Our own settings panel
