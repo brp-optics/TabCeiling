@@ -15,10 +15,12 @@ Tab Ceiling has two modes:
 1. Tab Ceiling blocks the creation of new tabs:
   - on Desktop:  past a configurable ceiling.
   - on Android:  with a manual toggle
-2. Optionally, Tab Ceiling forces new links to open in the tab that opened them.
-  - Option 1: do not do this (safe default)
-  - Option 2: when the tab would be locked (due to the ceiling or manual toggle)
-  - Option 3: always do this
+  - The ceiling can be bypassed when necessary with an "Allow one new tab" button, for those sites which require them. 
+2. Optionally, Tab Ceiling loads links in the tab that opened them instead of a new tab.
+  - Option 1 ("Never"): do not do this (safe default). Results in blocked links being dropped,
+    but navigation stays on current page.
+  - Option 2 ("At ceiling" / "When blocked"): a *blocked* link loads in the tab that originated it.
+  - Option 3 ("Always"): links never open in new tabs.
 
 ## Tab and data safety
 
@@ -93,14 +95,20 @@ tabs. You can verify this yourself before trusting it with a large session: open
 tabs over the limit, force-quit Firefox, reopen, and confirm they all come
 back.
 
-On Android, new tabs are detected via a classifier based on the web page dimensions: 
-FF Android loads new user-generated tabs a size of 0x0 pixels, but it loads tabs from memory at their display size.
-So we use the classifier to identify new tabs and force them closed if they are not loading from memory.
-With one exception: about:blank (the default new tab after you click "+") doesn't respond to a force-close event.
-So we wait until it has loaded a page, then force-close that page.
+On Android, there is no mechanism for extensions to see how many tabs are open. Tabs restored from memory appear nearly the same as newly opened tabs. In order to tell a restored tab from a new tab, Tab Ceiling takes advantage of the fact that restored tabs arrive with the page size already set to the screen's dimensions, whereas new tabs are first created with size 0x0 and then are updated when content arrives. Some restore tabs also start with size 0x0, but they are populated quickly. We attempt to filter them out by checking for size 150 ms after opening. 
 
-We also save the tab IDs locally so that we can display how many tabs have opened/closed over the last hour and ignore those that have been loaded from memory.
+On Android, the "+" button creates a tab, but Firefox will not allow it to close until it shows a page.
+In order to block the "+" button, Tab Ceiling waits and closes it the moment it navigates to a page.
 
+On Android, there are two more safety nets: (1) tab creations within 500 ms of a tab the extension closed are ignored (CLOSE_QUIET_MS), since that's the browser backfilling the screen with a tab from memory. (2) If three tabs are closed within ten seconds, a safety switch triggers, and blocking ceases until Firefox restarts or the extension is uninstalled and reinstalled. If it triggers safety switch is shown in the settings panel.
+
+We also save the tab IDs locally so that we can display how many tabs have opened/closed over the last hour and eventually build up a database of those that have been loaded from memory.
+
+Classifier signals considered but not used:
+- `sessions.setTabValue`/`getTabValue` would tag tabs, but the `sessions` API doesn't exist on Android.
+- `webNavigation.onCommitted` reveals a `reload` transition for each restore. The `forward_back` transition qualifier seems to appear on restores and not on user-opened tabs, so it is a possible second signal,
+but it would require the WebNavigation permission, which looks scary at the install prompt.
+- `tabs.discard` is not implemented on Android.
 
 Configuration changes are saved immediately to `storage.local` and take effect without a restart.
 `STARTUP_GRACE_MS` and `URL_WAIT_MS` are constants only exposed in `background.js`.
@@ -117,7 +125,8 @@ Configuration changes are saved immediately to `storage.local` and take effect w
 | `icon.svg` | Extension icon |
 | `build.sh` | Zips the extension into `build/<version>.zip` for upload |
 | `LICENSE` | AGPLv3 License terms |
-
+| `check.sh` | Pre-build check: makes sure every called name and call site exists.
+| `make-icon.py` | Generates `icon.svg`.
 
 ## Developers: Testing on your phone
 
@@ -125,7 +134,11 @@ Requires [Node.js](https://nodejs.org) and a USB cable.
 
 ```bash
 
+<<<<<<< HEAD
 # `sudo apt-get install npm`
+=======
+sudo apt-get install npm
+>>>>>>> 7e2dab7 (v1.6.3: update docs)
 
 # On the phone, two separate steps:
 #   Android: Settings > About phone > tap Build number 7 times,
@@ -167,9 +180,11 @@ Nightly as your daily browser.
 
 - The total number of open tabs is not available on Android.
   Instead of providing a ceiling, we just have tab blocking controlled by a manual toggle.
-- Closing new tabs started from "+" can be hit-or-miss on Android. For unclear reasons, it seems to work about half the time. (`about:blank` cannot be closed.)
+- On Android the about:blank page cannot be closed. We close as soon as it navigates to a page.
+- On Android a link that opens in a new foreground tab may load too quickly and bypass the block. Acceptable sacrifices to avoid losing user data.
+- On Android tabs restored from Recently Closed look like new tabs and are blocked. Turn off the blocking or load up on grace tabs before restoring from Recently Closed.
 - `window.open()` calls from page scripts aren't intercepted by the content
-  script, so those tabs briefly appear before the background script closes
+  script, so some tabs briefly appear before the background script closes
   them.
 - The extension is easy to uninstall. The point is to help you be organized, not overcome addictions.
 - Firefox for iOS doesn't support extensions at all. Thus iOS is not supported.

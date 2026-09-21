@@ -5,6 +5,20 @@ All notable changes to Tab Ceiling are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-09-22
+### Added
+- Check.sh is now available in github. It's supposedly an automated test suite - but I've never used it.
+
+### Fixed
+- On Android, a tab resuming from archival could be closed. This has now been fixed with a timeout.
+  Root cause was that the classifier depended on restored tabs arriving sized to the screen
+  (and new tabs arriving with size 0x0), but some long-term restores arrive with size 0x0.
+  The solution is to wait 150 ms before checking size, 
+  since new tabs without content are usually switched to more than 150 ms later. 
+  This will miss some new tabs, but that's an acceptable tradeoff to avoid clobbering archival tabs.
+- On Android, opening the settings panel was treated as opening a new tab: it could be blocked,
+  spend grace tabs, etc. It is now ignored.
+
 ## [1.6.0] - 2026-09-14
 ### Added
 
